@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 28" fill="none">
+  <path d="M14.6 2.5L7.2 16.8H14.1L12.2 25.5L21.8 11.2H14.9L17.8 2.5H14.6Z" fill="#0C2340"/>
+  <path d="M14.1 16.8L12.2 25.5L21.8 11.2H14.9L17.8 2.5L14.6 2.5L7.2 16.8H14.1Z" fill="#02042B"/>
+  <path d="M14.6 2.5L7.2 16.8H14.1L12.2 25.5L21.8 11.2H14.9L17.8 2.5H14.6Z" fill="#3395FF"/>
+  <text x="32" y="19" font-family="system-ui, -apple-system, sans-serif" font-weight="800" font-size="16" fill="#0C2340">Razorpay</text>
+</svg>

@@ -1,0 +1,32 @@
+# ── Core ──────────────────────────────────────
+Django>=6.0,<6.1
+djangorestframework>=3.17,<3.18
+djangorestframework_simplejwt>=5.5,<5.6
+django-cors-headers>=4.9,<5.0
+python-dotenv>=1.2,<2
+dj-database-url>=2.3,<3
+python-multipart>=0.0.21
+
+# ── Authentication ────────────────────────────
+google-auth>=2.53,<3
+
+# ── Media / Cloudinary ────────────────────────
+django-cloudinary-storage>=0.3,<1
+cloudinary>=1.41,<2
+pillow>=12.2,<13
+
+# ── HTTP ──────────────────────────────────────
+requests>=2.34,<3
+
+# ── Error Tracking ────────────────────────────
+sentry-sdk>=2,<3
+
+# ── Deployment ────────────────────────────────
+gunicorn>=23.0,<24
+whitenoise>=6.9,<7
+psycopg[binary]>=3.3,<4
+razorpay>=1.4,<2
+
+# ── AI / Vectorization (MerchantOS Integration) ──
+pgvector>=0.3,<1
+openai>=1.100,<2

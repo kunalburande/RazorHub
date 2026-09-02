@@ -1,0 +1,180 @@
+import { Star } from "lucide-react";
+
+import { categories } from "../data";
+import { useTranslation } from "../i18n";
+import type { Product } from "../interfaces";
+import { getLocalizedText, formatCurrency } from "../utils/productUtils";
+import Image from "./Image";
+import Button from "./ui/Button";
+import ColorCircle from "./ui/ColorCircle";
+
+interface Props {
+  product?: Product;
+  setProductToEdit: (product: Product) => void;
+  onDelete?: (productId: string) => void;
+}
+
+const ProductCard = ({ product, setProductToEdit, onDelete }: Props) => {
+  const { t } = useTranslation();
+  if (!product) return null;
+
+  const {
+    imageURL,
+    title,
+    description,
+    price,
+    colors,
+    category,
+    stock = 15,
+    sku = "SKU-PROD",
+    rating = 4.8,
+    reviewCount = 120,
+  } = product;
+
+  const displayTitle = getLocalizedText(title);
+  const displayDescription = getLocalizedText(description);
+
+  // Resolve category image from the canonical categories array (same source as Add Product modal)
+  const canonicalCategory = categories.find(
+    (c) => c.name.toLowerCase() === category.name.toLowerCase(),
+  );
+  const categoryImageURL = canonicalCategory?.imageURL ?? category.imageURL;
+
+  /* ------- RENDER -------  */
+  const renderProductColors = colors.map((color) => (
+    <ColorCircle key={color} color={color} />
+  ));
+
+  // Stock status pill
+  const isOutOfStock = stock === 0;
+
+  const stockBadge = isOutOfStock ? (
+    <span className="animate-pulse rounded-md border border-rose-500/30 bg-rose-500/15 px-2 py-0.5 text-[10px] font-bold text-rose-500 shadow-2xs backdrop-blur-md dark:text-rose-400">
+      {t("products.outOfStock", "Out of Stock (0)")}
+    </span>
+  ) : stock <= 10 ? (
+    <span className="rounded-md border border-amber-500/30 bg-amber-500/15 px-2 py-0.5 text-[10px] font-bold text-amber-500 shadow-2xs backdrop-blur-md dark:text-amber-400">
+      {t("products.lowStock", {
+        count: stock,
+        defaultValue: `Low Stock (${stock})`,
+      })}
+    </span>
+  ) : (
+    <span className="rounded-md border border-emerald-500/30 bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-500 shadow-2xs backdrop-blur-md dark:text-emerald-400">
+      {t("products.inStock", {
+        count: stock,
+        defaultValue: `In Stock (${stock})`,
+      })}
+    </span>
+  );
+  {
+    /* ------- HANDLER -------  */
+  }
+
+  const handleProductEdit = () => {
+    setProductToEdit(product);
+  };
+
+  return (
+    <div className="group relative flex w-full min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200/90 bg-white p-3.5 shadow-sm transition-all duration-300 ease-out hover:-translate-y-1 hover:border-gray-300 hover:shadow-xl sm:mx-0 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-slate-700 dark:hover:shadow-2xl dark:hover:shadow-black/60">
+      {/* Product Image Container */}
+      <div className="relative aspect-16/15 w-full overflow-hidden rounded-xl bg-gray-100 dark:bg-slate-800">
+        <Image
+          imageSrc={imageURL}
+          altText={displayTitle}
+          categoryName={category.name}
+          className={`h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-105 ${
+            isOutOfStock ? "opacity-80 saturate-50" : ""
+          }`}
+        />
+
+        {/* Top Badges overlay */}
+        <div className="pointer-events-none absolute top-2 right-2 left-2 flex items-center justify-between gap-1">
+          <span className="truncate rounded-md bg-black/60 px-2 py-0.5 text-[10px] font-semibold tracking-wider text-zinc-200 backdrop-blur-md">
+            {sku}
+          </span>
+          <div className="shrink-0">{stockBadge}</div>
+        </div>
+      </div>
+
+      {/* Product Information */}
+      <div className="flex min-w-0 flex-1 flex-col gap-y-2 pt-3">
+        {/* Rating and Reviews */}
+        <div className="flex items-center justify-between gap-1 text-xs text-gray-500 dark:text-slate-400">
+          <div className="flex shrink-0 items-center gap-1">
+            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+            <span className="font-bold text-gray-900 dark:text-white">
+              {rating}
+            </span>
+            <span className="text-[11px] text-gray-400 dark:text-slate-500">
+              ({reviewCount})
+            </span>
+          </div>
+          <span className="text-end text-[11px] leading-tight font-medium wrap-break-word text-gray-400 capitalize dark:text-slate-500">
+            {t("categories." + category.name.toLowerCase(), category.name)}
+          </span>
+        </div>
+
+        <h3 className="group-hover:text-accent line-clamp-1 text-base font-bold wrap-anywhere text-gray-900 transition-colors dark:text-white">
+          {displayTitle}
+        </h3>
+        <p className="line-clamp-2 min-h-8 text-xs leading-relaxed wrap-anywhere text-gray-600 dark:text-slate-300">
+          {displayDescription}
+        </p>
+
+        {/* Color Circles */}
+        <div className="flex min-h-5.5 flex-wrap items-center gap-1.5 py-1">
+          {colors.length > 0 ? (
+            renderProductColors
+          ) : (
+            <span className="text-[11px] text-gray-500 italic dark:text-slate-400">
+              {t("products.noColors", "No colors available")}
+            </span>
+          )}
+        </div>
+
+        {/* Price & Category */}
+        <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-1">
+          <span className="text-accent shrink-0 text-xl font-extrabold tracking-tight">
+            {formatCurrency(price)}
+          </span>
+
+          <div className="flex max-w-full min-w-0 items-center gap-x-1.5 rounded-full border border-gray-200 bg-gray-100/80 px-2.5 py-1 shadow-2xs dark:border-slate-700 dark:bg-slate-800">
+            <span className="text-xs leading-tight font-semibold wrap-break-word whitespace-normal text-gray-800 capitalize dark:text-slate-200">
+              {t("categories." + category.name.toLowerCase(), category.name)}
+            </span>
+            <Image
+              imageSrc={categoryImageURL}
+              altText={category.name}
+              className="h-6 w-6 shrink-0 rounded-full object-cover ring-1 ring-gray-300 dark:ring-slate-600"
+            />
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-col items-stretch gap-2 pt-3 min-[350px]:flex-row">
+          <Button
+            type="button"
+            className="bg-accent shadow-accent-glow hover:bg-accent-hover min-w-0 px-2 py-2 text-center text-xs font-semibold tracking-wider wrap-break-word text-white shadow-xs transition-all duration-200 hover:shadow-md"
+            onClick={handleProductEdit}
+          >
+            {t("products.edit", "EDIT")}
+          </Button>
+          <Button
+            type="button"
+            className="min-w-0 bg-rose-600 px-2 py-2 text-center text-xs font-semibold tracking-wider wrap-break-word text-white shadow-xs shadow-rose-600/20 transition-all duration-200 hover:bg-rose-700 hover:shadow-md"
+            onClick={() => {
+              if (product?.id && onDelete) {
+                onDelete(product.id);
+              }
+            }}
+          >
+            {t("products.delete", "DELETE")}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default ProductCard;
