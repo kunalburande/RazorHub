@@ -222,33 +222,92 @@ class ProductViewSet(viewsets.ModelViewSet):
     def recommendations(self, request, slug=None):
         product = self.get_object()
         from .serializers import ProductListSerializer
+        from intelligence.services.profit_optimizer import ProfitOptimizerService
 
-        # 1. Frequently Bought Together & 3. Cross-Sell:
-        # Dummy representations removed; real recommendation logic will be provided later.
+        # Run Profit-First Opportunity Engine
+        ranked_metrics = ProfitOptimizerService.get_ranked_recommendations(
+            base_product=product,
+            user=request.user if request.user.is_authenticated else None,
+            timing_context="product_details",
+            limit=8
+        )
+
+        upsell_products = []
+        cross_sell_products = []
+        metrics_by_id = {}
+
+        for m in ranked_metrics:
+            p_obj = m["product"]
+            metrics_by_id[p_obj.id] = {
+                "contribution_margin": m["contribution_margin"],
+                "acceptance_probability": m["acceptance_probability"],
+                "p_baseline": m.get("p_baseline", 0.20),
+                "p_treatment": m.get("p_treatment", 0.35),
+                "uplift": m.get("uplift", 0.15),
+                "quadrant": m.get("quadrant", "PERSUADABLE"),
+                "quadrant_label": m.get("quadrant_label", "Persuadable"),
+                "causal_incremental_margin": m.get("causal_incremental_margin", m["expected_incremental_margin"]),
+                "expected_incremental_margin": m["expected_incremental_margin"],
+                "opportunity_score": m["opportunity_score"],
+                "customer_fit": m["customer_fit"],
+                "inventory_health": m["inventory_health"],
+                "reason": m["reason"],
+            }
+            if m["is_upgrade"] or p_obj.price > product.price:
+                if len(upsell_products) < 3:
+                    upsell_products.append(p_obj)
+            else:
+                if len(cross_sell_products) < 4:
+                    cross_sell_products.append(p_obj)
+
+        # Build Frequently Bought Together bundle from top cross-sell
         fbt_data = None
-        cross_sell_data = []
+        if cross_sell_products:
+            top_companion = cross_sell_products[0]
+            raw_total = float(product.current_price + top_companion.current_price)
+            discount_amount = round(raw_total * 0.05, 2)
+            bundle_price = round(raw_total - discount_amount, 2)
+            fbt_data = {
+                "items": ProductListSerializer([product, top_companion], many=True).data,
+                "raw_total": raw_total,
+                "discount_amount": discount_amount,
+                "bundle_price": bundle_price,
+                "savings_pct": 5,
+                "bundle_margin": float(
+                    ProfitOptimizerService.compute_contribution_margin(product) +
+                    ProfitOptimizerService.compute_contribution_margin(top_companion) -
+                    Decimal(str(discount_amount))
+                )
+            }
 
-        # 2. Upsell (Premium upgrades in same category with higher price)
-        upsell_qs = product_queryset(list_mode=True).filter(
-            category_id=product.category_id,
-            price__gt=product.price,
-            is_active=True
-        ).exclude(pk=product.pk).order_by('price', '-rating')[:4]
-        upsell_data = ProductListSerializer(upsell_qs, many=True).data
-
-        # 4. Similar Alternatives (Same category)
+        # Similar Alternatives (Same category, diverse brand)
         similar_qs = product_queryset(list_mode=True).filter(
             category_id=product.category_id,
             is_active=True
-        ).exclude(pk=product.pk).order_by('-rating')[:6]
+        ).exclude(pk=product.pk).order_by('-rating', '-created_at')[:6]
         similar_data = ProductListSerializer(similar_qs, many=True).data
 
+        upsell_data = ProductListSerializer(upsell_products, many=True).data
+        cross_sell_data = ProductListSerializer(cross_sell_products, many=True).data
+
         return Response({
-            "frequently_bought_together": None,
+            "frequently_bought_together": fbt_data,
             "upsell": upsell_data,
             "cross_sell": cross_sell_data,
-            "similar": similar_data
+            "similar": similar_data,
+            "opportunity_metrics": metrics_by_id
         })
+
+    @action(detail=True, methods=['get'], url_path='manifest', permission_classes=[permissions.AllowAny])
+    def manifest(self, request, slug=None):
+        """
+        GET /api/items/{slug}/manifest/
+        Returns facts-only Agent-Readable Product Manifest for autonomous AI buyers.
+        """
+        from intelligence.services.agent_manifest import AgentManifestService
+        product = self.get_object()
+        manifest_data = AgentManifestService.build_product_manifest(product)
+        return Response(manifest_data)
 
     @action(detail=False, methods=["get"], url_path="personalized")
     def personalized(self, request):

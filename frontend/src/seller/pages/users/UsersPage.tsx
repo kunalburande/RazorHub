@@ -275,7 +275,7 @@ export default function UsersPage() {
             {t("users.table.accountsDirectory", "Accounts Directory")}
           </h2>
           <span className="text-xs text-zinc-500 dark:text-zinc-400">
-            Showing {users.length} registered accounts in NeonDB
+            Showing {users.length} registered accounts
           </span>
         </div>
 

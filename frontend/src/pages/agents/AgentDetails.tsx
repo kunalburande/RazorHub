@@ -148,7 +148,7 @@ export default function AgentDetails() {
   const successRate = executions.length > 0 ? Math.round((completedExecutions / executions.length) * 100) : 100;
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="mx-auto max-w-[1360px] w-full px-4 sm:px-6 lg:px-8 py-6 space-y-8 pb-16 min-w-0">
       
       {/* Top Header Card */}
       <div className="p-6 sm:p-8 rounded-3xl border border-border/80 bg-surface shadow-xs space-y-6">

@@ -1,72 +1,76 @@
-import React, { useState, useEffect } from"react";
-import type { ChangeEvent } from"react";
-import { Link, useLocation, Routes, Route } from"react-router-dom";
-import { v4 as uuid } from"uuid";
+import React, { useState, useEffect } from "react";
+import type { ChangeEvent } from "react";
+import { Link, useLocation, Routes, Route } from "react-router-dom";
+import { v4 as uuid } from "uuid";
 import {
- Package,
- Plus,
- BarChart2,
- Users as UsersIcon,
- Settings as SettingsIcon,
- Search,
- CheckCircle2,
- Trash2,
- Edit,
- ArrowRight,
- ExternalLink,
- BookOpen,
- HelpCircle,
- Code2,
- Shield,
- FileText,
- Cookie,
- Sparkles,
- Store as StoreIcon,
- MapPin,
- LogOut,
-} from"lucide-react";
+  Package,
+  Plus,
+  Building2,
+  ShieldAlert,
+  Bell,
+  Users as UsersIcon,
+  Settings as SettingsIcon,
+  CheckCircle2,
+  ExternalLink,
+  Sparkles,
+  Bot,
+  Store as StoreIcon,
+  FileText,
+  Code2,
+  LogOut,
+  Zap,
+  Trash2,
+  Edit,
+  ArrowRight,
+  BookOpen,
+  HelpCircle,
+  Shield,
+  Cookie,
+  MapPin,
+  Search,
+  BarChart2,
+} from "lucide-react";
 
-import AIChatPanel from"./components/ai/AIChatPanel";
-import FloatingAIButton from"./components/ai/FloatingAIButton";
-import AnalyticsCharts from"./components/AnalyticsCharts";
-import FilterBar from"./components/FilterBar";
-import KpiStats from"./components/KpiStats";
-import ProductCard from"./components/ProductCard";
-import Button from"./components/ui/Button";
-import ColorCircle from"./components/ui/ColorCircle";
-import ErrorMessage from"./components/ui/ErrorMessage";
-import Input from"./components/ui/Input";
-import Modal from"./components/ui/Modal";
-import Select from"./components/ui/Select";
-import Toast, { type ToastMessage } from"./components/ui/Toast";
-import { AIProvider } from"./context/AIContext";
+import AIChatPanel from "./components/ai/AIChatPanel";
+import FloatingAIButton from "./components/ai/FloatingAIButton";
+import AnalyticsCharts from "./components/AnalyticsCharts";
+import FilterBar from "./components/FilterBar";
+import KpiStats from "./components/KpiStats";
+import ProductCard from "./components/ProductCard";
+import Button from "./components/ui/Button";
+import ColorCircle from "./components/ui/ColorCircle";
+import ErrorMessage from "./components/ui/ErrorMessage";
+import Input from "./components/ui/Input";
+import Modal from "./components/ui/Modal";
+import Select from "./components/ui/Select";
+import Toast, { type ToastMessage } from "./components/ui/Toast";
+import { AIProvider } from "./context/AIContext";
 import { ThemeProvider as SellerThemeProvider } from "./context/ThemeContext";
-import { categories as defaultCategories, colors, formInputsList, productList } from"./data";
-import { mockUsers } from"./data/mockUsers";
-import { useTranslation } from"./i18n";
-import type { Category, Product } from"./interfaces";
-import UsersPage from"./pages/users/UsersPage";
+import { categories as defaultCategories, colors, formInputsList, productList } from "./data";
+import { mockUsers } from "./data/mockUsers";
+import { useTranslation } from "./i18n";
+import type { Category, Product } from "./interfaces";
+import UsersPage from "./pages/users/UsersPage";
 import SettingsPage from "./pages/settings/SettingsPage";
 import RazorHubSellerDashboard from "./pages/RazorHubSellerDashboard";
-import AgentsConsole from "./pages/AgentsConsole";
-import PolicyEngine from "./pages/PolicyEngine";
+import AgentsBridge from "./pages/AgentsBridge";
 import AuditTrail from "./pages/AuditTrail";
-import RecoveryDashboard from "./pages/RecoveryDashboard";
-import RevenueIntelligence from "./pages/RevenueIntelligence";
 import OrdersPage from "../pages/OrdersPage";
-import DocsPage from"./pages/support/DocsPage";
-import ApiPage from"./pages/support/ApiPage";
-import HelpPage from"./pages/support/HelpPage";
-import PrivacyPage from"./pages/legal/PrivacyPage";
-import TermsPage from"./pages/legal/TermsPage";
-import CookiesPage from"./pages/legal/CookiesPage";
-import { productValidation } from"./schema";
-import { getLocalizedText } from"./utils/productUtils";
-import { useAuth } from"../context/AuthContext";
-import { useTheme } from"../context/ThemeContext";
+import DocsPage from "./pages/support/DocsPage";
+import ApiPage from "./pages/support/ApiPage";
+import HelpPage from "./pages/support/HelpPage";
+import PrivacyPage from "./pages/legal/PrivacyPage";
+import TermsPage from "./pages/legal/TermsPage";
+import CookiesPage from "./pages/legal/CookiesPage";
+import BusinessBankingPage from "../pages/banking/BusinessBankingPage";
+import RiskEnginePage from "../pages/RiskEnginePage";
+import { productValidation } from "./schema";
+import { getLocalizedText } from "./utils/productUtils";
+import { useAuth } from "../context/AuthContext";
+import { useTheme } from "../context/ThemeContext";
 import ThemeToggle from "../components/ThemeToggle";
-import { apiRequest, unwrapList } from"../lib/api";
-import { productImage, type CategoryType, type ProductType } from"../lib/products";
+import { apiRequest, unwrapList } from "../lib/api";
+import { productImage, type CategoryType, type ProductType } from "../lib/products";
 
 function PlaceholderPage({ title, description }: { title: string, description: string }) {
   return (
@@ -666,12 +670,12 @@ export default function SellerPortal() {
     <header className="sticky top-0 z-40 border-b border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-950/80 backdrop-blur-xl">
       <div className="mx-auto max-w-[1400px] w-full flex items-center justify-between px-4 sm:px-6 py-3">
         <div className="flex items-center gap-4 lg:gap-6">
-          <Link to="/seller" className="flex flex-col group">
+          <Link to="/" className="flex flex-col group" title="Navigate to RazorHub Home">
             <h1 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white tracking-tight leading-none">
-              RazorHub<span className="text-blue-500 group-hover:text-blue-600 transition-colors">Seller</span>
+              RazorHub
             </h1>
             <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-1 uppercase tracking-wider font-bold hidden sm:block">
-              AI Commerce Central
+              Commerce Platform
             </p>
           </Link>
 
@@ -725,51 +729,39 @@ export default function SellerPortal() {
             </Link>
 
             <Link
-              to="/seller/agents"
+              to="/seller/banking"
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
-                isCurrent("/seller/agents")
+                location.pathname.startsWith("/seller/banking")
                   ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
               }`}
             >
-              <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+              <Building2 className="h-3.5 w-3.5" />
+              Banking
+            </Link>
+
+            <Link
+              to="/seller/agents"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
+                location.pathname.startsWith("/seller/agents")
+                  ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
+              }`}
+            >
+              <Bot className="h-3.5 w-3.5 text-indigo-500" />
               Agents
             </Link>
 
             <Link
-              to="/seller/policies"
+              to="/seller/risk"
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
-                isCurrent("/seller/policies")
+                location.pathname.startsWith("/seller/risk")
                   ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
                   : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
               }`}
             >
-              <Shield className="h-3.5 w-3.5" />
-              Policies
-            </Link>
-
-            <Link
-              to="/seller/recovery"
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
-                isCurrent("/seller/recovery")
-                  ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
-              }`}
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-              Recovery
-            </Link>
-
-            <Link
-              to="/seller/revenue"
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
-                isCurrent("/seller/revenue")
-                  ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
-                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
-              }`}
-            >
-              <BarChart2 className="h-3.5 w-3.5" />
-              Revenue
+              <ShieldAlert className="h-3.5 w-3.5" />
+              Risk
             </Link>
 
             <Link
@@ -809,18 +801,19 @@ export default function SellerPortal() {
             <span className="sm:hidden">Add</span>
           </Button>
 
+          {/* Notification Bell */}
+          <Link
+            to="/notifications"
+            className="flex items-center justify-center h-9 w-9 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative"
+            title="Communications & Notifications"
+          >
+            <Bell className="h-4 w-4 text-gray-600 dark:text-gray-400" />
+          </Link>
+
           <div className="flex items-center rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shadow-xs">
             <ThemeToggle />
           </div>
 
-          <Link
-            to="/"
-            className="flex items-center gap-1.5 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-300 shadow-xs hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
-            title="View Public Storefront"
-          >
-            <ExternalLink className="h-3.5 w-3.5" />
-            <span className="hidden md:inline">Storefront</span>
-          </Link>
 
           <Button
             onClick={logout}
@@ -841,10 +834,9 @@ export default function SellerPortal() {
         { name: "Catalog", href: "/seller/products" },
         { name: "Orders", href: "/seller/orders" },
         { name: "Customers", href: "/seller/users" },
+        { name: "Banking", href: "/seller/banking" },
         { name: "Agents", href: "/seller/agents" },
-        { name: "Policies", href: "/seller/policies" },
-        { name: "Recovery", href: "/seller/recovery" },
-        { name: "Revenue", href: "/seller/revenue" },
+        { name: "Risk", href: "/seller/risk" },
         { name: "Audit", href: "/seller/audit" },
         { name: "Settings", href: "/seller/settings" },
       ].map((item) => (
@@ -864,52 +856,52 @@ export default function SellerPortal() {
 
  {/* Main Content Area */}
  <main className="mx-auto max-w-[1360px] w-full px-4 py-8 sm:px-6 lg:px-8">
- <Routes>
- <Route
- path="/"
- element={<RazorHubSellerDashboard />}
- />
- <Route
- path="/products"
- element={
- <SellerProductsView
- open={openAddModal}
- products={products}
- searchQuery={searchQuery}
- setSearchQuery={setSearchQuery}
- filterCategory={filterCategory}
- setFilterCategory={setFilterCategory}
- sortBy={sortBy}
- setSortBy={setSortBy}
- setProductToEdit={openEditModal}
- onDeleteProduct={(id) => {
- const p = products.find((x) => x.id === id);
- if (p) setProductToDelete(p);
- }}
- categoriesList={categoriesList}
- />
- }
- />
- <Route path="/orders" element={<OrdersPage mode="seller" />} />
- <Route path="/users" element={<UsersPage />} />
- <Route path="/agents" element={<AgentsConsole />} />
- <Route path="/policies" element={<PolicyEngine />} />
- <Route path="/audit" element={<AuditTrail />} />
- <Route path="/recovery" element={<RecoveryDashboard />} />
- <Route path="/revenue" element={<RevenueIntelligence />} />
- <Route path="/cart" element={<PlaceholderPage title="Cart Management" description="Manage cart abandonments and live sessions here." />} />
- <Route path="/payments" element={<PlaceholderPage title="Payment Gateway" description="Configure Razorpay integrations and monitor transactions." />} />
- <Route
- path="/settings"
- element={
- <SettingsPage
- darkMode={theme ==="dark"}
- toggleDarkMode={toggleTheme}
- addToast={addToast}
- />
- }
- />
- </Routes>
+  <Routes>
+    <Route path="/" element={<RazorHubSellerDashboard />} />
+    <Route
+      path="/products"
+      element={
+        <SellerProductsView
+          open={openAddModal}
+          products={products}
+          searchQuery={searchQuery}
+          setSearchQuery={setSearchQuery}
+          filterCategory={filterCategory}
+          setFilterCategory={setFilterCategory}
+          sortBy={sortBy}
+          setSortBy={setSortBy}
+          setProductToEdit={openEditModal}
+          onDeleteProduct={(id) => {
+            const p = products.find((x) => x.id === id);
+            if (p) setProductToDelete(p);
+          }}
+          categoriesList={categoriesList}
+        />
+      }
+    />
+    <Route path="/orders" element={<OrdersPage mode="seller" />} />
+    <Route path="/users" element={<UsersPage />} />
+    {/* Banking — embedded in the seller shell */}
+    <Route path="/banking" element={<BusinessBankingPage embedded />} />
+    <Route path="/banking/*" element={<BusinessBankingPage embedded />} />
+    {/* Risk Engine — embedded */}
+    <Route path="/risk" element={<RiskEnginePage embedded />} />
+    {/* Agents — bridge to real Agent Studio */}
+    <Route path="/agents" element={<AgentsBridge />} />
+    {/* Audit trail */}
+    <Route path="/audit" element={<AuditTrail />} />
+    {/* Settings */}
+    <Route
+      path="/settings"
+      element={
+        <SettingsPage
+          darkMode={theme === "dark"}
+          toggleDarkMode={toggleTheme}
+          addToast={addToast}
+        />
+      }
+    />
+  </Routes>
 
  {/* Add / Edit Product Modal */}
  <Modal

@@ -55,7 +55,7 @@ interface RiskHistoryRecord {
   created_at: string;
 }
 
-export default function RiskEnginePage() {
+export default function RiskEnginePage({ embedded = false }: { embedded?: boolean }) {
   const { token } = useAuth();
 
   // Inputs state
@@ -234,7 +234,7 @@ export default function RiskEnginePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8">
+    <div className={embedded ? 'space-y-8' : 'max-w-7xl mx-auto px-4 sm:px-6 py-8 space-y-8'}>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border pb-6">
         <div>

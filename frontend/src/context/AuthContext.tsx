@@ -17,6 +17,16 @@ export interface User {
   role: Role;
   effective_role: Role;
   is_active: boolean;
+  seller_profile?: {
+    id: number;
+    business_name: string;
+    store_name?: string;
+    store_description?: string;
+    phone?: string;
+    tax_id?: string;
+    status?: string;
+    logo_url?: string;
+  } | null;
 }
 
 interface AuthContextType {

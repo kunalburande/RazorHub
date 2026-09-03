@@ -2,7 +2,8 @@ import { useMemo } from "react";
 
 import {
   ShieldCheck,
-  Sparkles,
+  ShoppingBag,
+  Store,
   TrendingUp,
   UserCheck,
   Users,
@@ -31,72 +32,90 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
   const stats = useMemo(() => {
     const total = users.length;
     const active = users.filter((u) => u.status === "Active").length;
-    const pro = users.filter((u) => u.plan === "Pro").length;
-    const enterprise = users.filter((u) => u.plan === "Enterprise").length;
-    const paidRate = Math.round(((pro + enterprise) / (total || 1)) * 100);
-    const activeRate = Math.round((active / (total || 1)) * 100);
+    const customers = users.filter((u) => u.role === "Customer" || u.role === "User").length;
+    const sellers = users.filter((u) => u.role === "Seller").length;
+    const admins = users.filter((u) => u.role === "Admin").length;
+    const activeRate = total ? Math.round((active / total) * 100) : 0;
+    const customerRate = total ? Math.round((customers / total) * 100) : 0;
+    const sellerRate = total ? Math.round((sellers / total) * 100) : 0;
 
     return {
       total,
       active,
-      pro,
-      enterprise,
-      paidRate,
+      customers,
+      sellers,
+      admins,
       activeRate,
+      customerRate,
+      sellerRate,
     };
   }, [users]);
 
-  // Generate monthly user registration trend data
+  // Compute real monthly user onboarding data from actual users joined date
   const monthlyData = useMemo(() => {
-    return [
-      { month: t("months.jan", "Jan"), users: 12, active: 10 },
-      { month: t("months.feb", "Feb"), users: 19, active: 15 },
-      { month: t("months.mar", "Mar"), users: 27, active: 22 },
-      { month: t("months.apr", "Apr"), users: 38, active: 31 },
-      { month: t("months.may", "May"), users: 54, active: 45 },
-      { month: t("months.jun", "Jun"), users: 72, active: 62 },
-      { month: t("months.jul", "Jul"), users: 89, active: 78 },
-      { month: t("months.aug", "Aug"), users: 100, active: stats.active },
-    ];
-  }, [stats.active, t]);
+    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth();
 
-  // Plan Breakdown Data
-  const planData = useMemo(() => {
-    const free = users.filter((u) => u.plan === "Free").length;
-    const pro = users.filter((u) => u.plan === "Pro").length;
-    const ent = users.filter((u) => u.plan === "Enterprise").length;
+    const data = [];
+    for (let i = 5; i >= 0; i--) {
+      const targetDate = new Date(currentYear, currentMonth - i, 1);
+      const mLabel = monthNames[targetDate.getMonth()];
+      const endOfTargetMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59);
 
+      const cumulativeUsers = users.filter((u) => {
+        const join = new Date(u.joinedAt);
+        return !isNaN(join.getTime()) && join <= endOfTargetMonth;
+      }).length;
+
+      const activeInMonth = users.filter((u) => {
+        const join = new Date(u.joinedAt);
+        return !isNaN(join.getTime()) && join <= endOfTargetMonth && u.status === "Active";
+      }).length;
+
+      data.push({
+        month: mLabel,
+        users: cumulativeUsers,
+        active: activeInMonth,
+      });
+    }
+    return data;
+  }, [users]);
+
+  // Platform User Role Breakdown Data
+  const roleData = useMemo(() => {
     return [
       {
-        name: "Enterprise",
-        label: t("common.enterprise", "Enterprise"),
-        value: ent,
-        color: "#8b5cf6",
-      }, // Violet
+        name: "Customer",
+        label: t("common.customer", "Customers"),
+        value: stats.customers,
+        color: "#06b6d4", // Cyan
+      },
       {
-        name: "Pro",
-        label: t("common.pro", "Pro"),
-        value: pro,
-        color: "#3b82f6",
-      }, // Blue
+        name: "Seller",
+        label: t("common.seller", "Sellers"),
+        value: stats.sellers,
+        color: "#10b981", // Emerald
+      },
       {
-        name: "Free",
-        label: t("common.free", "Free"),
-        value: free,
-        color: "#71717a",
-      }, // Zinc
+        name: "Admin",
+        label: t("common.admin", "Admins"),
+        value: stats.admins,
+        color: "#8b5cf6", // Violet
+      },
     ];
-  }, [users, t]);
+  }, [stats, t]);
 
   return (
     <div className="space-y-6">
       {/* Top Metric Cards */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {/* Card 1: Total Users */}
+        {/* Card 1: Total Accounts */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs backdrop-blur-md transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/80 dark:hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-              {t("users.metrics.totalUsers", "Total Users")}
+              {t("users.metrics.totalUsers", "Total Accounts")}
             </span>
             <div className="rounded-lg bg-zinc-100 p-2 text-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-300">
               <Users className="h-4 w-4" />
@@ -106,12 +125,12 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
             <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
               {stats.total}
             </span>
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-              <TrendingUp className="h-3 w-3" /> +12.4%
+            <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400">
+              <TrendingUp className="h-3 w-3" /> Live
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {t("users.metrics.activeRatio", "Across all accounts and plans")}
+            Registered platform accounts
           </p>
           <div className="mt-3 h-8">
             <ResponsiveContainer width="100%" height="100%">
@@ -140,7 +159,7 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
           </div>
         </div>
 
-        {/* Card 2: Active Rate */}
+        {/* Card 2: Active Users */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs backdrop-blur-md transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/80 dark:hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
@@ -188,68 +207,61 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
           </div>
         </div>
 
-        {/* Card 3: Paid Subscribers */}
+        {/* Card 3: Customers & Buyers */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs backdrop-blur-md transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/80 dark:hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-              {t("users.metrics.paidSubscriptions", "Paid Subscriptions")}
+              Customers & Buyers
             </span>
-            <div className="rounded-lg bg-violet-500/10 p-2 text-violet-600 dark:text-violet-400">
-              <Sparkles className="h-4 w-4" />
+            <div className="rounded-lg bg-cyan-500/10 p-2 text-cyan-600 dark:text-cyan-400">
+              <ShoppingBag className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {stats.pro + stats.enterprise}
+              {stats.customers}
             </span>
-            <span className="text-xs font-medium text-violet-600 dark:text-violet-400">
-              {stats.paidRate}%
+            <span className="text-xs font-medium text-cyan-600 dark:text-cyan-400">
+              {stats.customerRate}% of accounts
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {stats.enterprise} {t("common.enterprise", "Enterprise")} /{" "}
-            {stats.pro} {t("common.pro", "Pro")}
+            Active shoppers browsing the marketplace
           </p>
           <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
             <div
-              className="bg-violet-500"
+              className="bg-cyan-500"
               style={{
-                width: `${(stats.enterprise / (stats.total || 1)) * 100}%`,
-              }}
-            />
-            <div
-              className="bg-blue-500"
-              style={{
-                width: `${(stats.pro / (stats.total || 1)) * 100}%`,
+                width: `${stats.customerRate}%`,
               }}
             />
           </div>
         </div>
 
-        {/* Card 4: Enterprise Tier */}
+        {/* Card 4: Verified Merchants */}
         <div className="rounded-xl border border-zinc-200 bg-white p-5 shadow-xs backdrop-blur-md transition-all hover:border-zinc-300 dark:border-zinc-800 dark:bg-zinc-900/80 dark:hover:border-zinc-700">
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium tracking-wider text-zinc-500 uppercase dark:text-zinc-400">
-              {t("users.metrics.enterpriseAccounts", "Enterprise Accounts")}
+              Verified Merchants
             </span>
-            <div className="rounded-lg bg-amber-500/10 p-2 text-amber-600 dark:text-amber-400">
-              <ShieldCheck className="h-4 w-4" />
+            <div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600 dark:text-emerald-400">
+              <Store className="h-4 w-4" />
             </div>
           </div>
           <div className="mt-3 flex items-baseline justify-between">
             <span className="text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">
-              {stats.enterprise}
+              {stats.sellers}
             </span>
-            <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-semibold text-amber-600 dark:text-amber-400">
-              {t("users.metrics.tierLevel", "Top Tier")}
+            <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+              Store Owners
             </span>
           </div>
           <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-            {t("users.metrics.enterpriseRatio", "Dedicated tier support")}
+            Active multi-vendor storefronts
           </p>
           <div className="mt-3 flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
-            <span className="inline-block h-2 w-2 rounded-full bg-emerald-500"></span>
-            100% SLA compliant
+            <ShieldCheck className="h-3.5 w-3.5 text-emerald-500" />
+            <span>Store KYC Verified</span>
           </div>
         </div>
       </div>
@@ -267,10 +279,7 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
                 )}
               </h3>
               <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                {t(
-                  "users.metrics.cumulativeVsActive",
-                  "Cumulative registrations vs monthly active users",
-                )}
+                Real registered accounts vs active sessions
               </p>
             </div>
             <div className="flex items-center gap-4 text-xs">
@@ -316,6 +325,7 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
                   fontSize={11}
                   tickLine={false}
                   axisLine={false}
+                  allowDecimals={false}
                 />
                 <Tooltip
                   contentStyle={{
@@ -329,7 +339,7 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
                 <Area
                   type="monotone"
                   dataKey="users"
-                  name={t("users.metrics.totalLegend", "Total Users")}
+                  name={t("users.metrics.totalLegend", "Total Accounts")}
                   stroke="#3b82f6"
                   strokeWidth={2}
                   fillOpacity={1}
@@ -349,58 +359,58 @@ export default function UsersMetrics({ users }: UsersMetricsProps) {
           </div>
         </div>
 
-        {/* Plan Breakdown Pie Chart */}
+        {/* User Role Breakdown Pie Chart */}
         <div className="flex flex-col justify-between rounded-xl border border-zinc-200 bg-white p-5 shadow-xs backdrop-blur-md dark:border-zinc-800 dark:bg-zinc-900/80">
           <div>
             <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-              {t(
-                "users.metrics.planDistribution",
-                "Subscription Plan Distribution",
-              )}
+              Platform Role Distribution
             </h3>
             <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-              {t(
-                "users.metrics.planBreakdown",
-                "Breakdown across Free, Pro, and Enterprise tiers",
-              )}
+              Breakdown across Customers, Sellers, and Staff
             </p>
           </div>
 
           <div className="my-2 flex h-44 w-full items-center justify-center">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={planData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={45}
-                  outerRadius={70}
-                  paddingAngle={4}
-                  dataKey="value"
-                >
-                  {planData.map((entry, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={entry.color}
-                      stroke="transparent"
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "rgba(24, 24, 27, 0.95)",
-                    borderColor: "#3f3f46",
-                    borderRadius: "8px",
-                    color: "#f4f4f5",
-                    fontSize: "12px",
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
+            {stats.total === 0 ? (
+              <div className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+                No accounts registered yet
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={roleData}
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={45}
+                    outerRadius={70}
+                    paddingAngle={4}
+                    dataKey="value"
+                  >
+                    {roleData.map((entry, index) => (
+                      <Cell
+                        key={`cell-${index}`}
+                        fill={entry.color}
+                        stroke="transparent"
+                      />
+                    ))}
+                  </Pie>
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(24, 24, 27, 0.95)",
+                      borderColor: "#3f3f46",
+                      borderRadius: "8px",
+                      color: "#f4f4f5",
+                      fontSize: "12px",
+                    }}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800/80">
-            {planData.map((item) => (
+            {roleData.map((item) => (
               <div key={item.name} className="text-center">
                 <div className="flex items-center justify-center gap-1 text-[11px] text-zinc-500 dark:text-zinc-400">
                   <span

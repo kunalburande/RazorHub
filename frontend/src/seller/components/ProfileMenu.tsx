@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
   BarChart2,
+  Bot,
+  Building2,
   ChevronDown,
   LogOut,
   Settings,
@@ -12,6 +14,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../i18n";
+import { useAuth } from "../../../context/AuthContext";
 
 export interface ProfileUser {
   name: string;
@@ -31,8 +34,35 @@ export default function ProfileMenu({
   onItemClick,
 }: ProfileMenuProps) {
   const { t } = useTranslation();
+  const { user: authUser, logout } = useAuth();
   const { userProfile, themePreset } = useThemeContext();
-  const user = userProp || { ...userProfile, status: "online" as const };
+
+  const realName =
+    [authUser?.first_name, authUser?.last_name].filter(Boolean).join(" ") ||
+    (authUser?.username && !authUser.username.includes("@") ? authUser.username : "") ||
+    userProp?.name ||
+    userProfile.name;
+
+  const realEmail = authUser?.email || userProp?.email || userProfile.email;
+  const realRole =
+    authUser?.seller_profile?.store_name ||
+    authUser?.seller_profile?.business_name ||
+    (authUser?.role === "seller" ? "Verified Store Owner" : userProfile.role);
+
+  const realAvatar =
+    authUser?.avatar ||
+    authUser?.avatar_url ||
+    userProp?.avatarUrl ||
+    userProfile.avatarUrl;
+
+  const user: ProfileUser = {
+    name: realName,
+    email: realEmail,
+    role: realRole,
+    avatarUrl: realAvatar,
+    status: "online",
+  };
+
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -78,11 +108,12 @@ export default function ProfileMenu({
   const isAnalyticsPage =
     location.pathname === "/" || (!isUsersPage && !isSettingsPage);
 
-  const handleActionClick = (key: string) => {
+  const handleActionClick = async (key: string) => {
     if (key === "logout") {
+      await logout();
       navigate("/login");
     } else if (key === "settings") {
-      navigate("/settings");
+      navigate("/seller/settings");
     }
     if (onItemClick) {
       onItemClick(key);
@@ -173,7 +204,7 @@ export default function ProfileMenu({
           <div className="space-y-1 p-1" role="none">
             {/* Products & Analytics */}
             <Link
-              to="/"
+              to="/seller"
               role="menuitem"
               onClick={closeMenu}
               className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all duration-150 ${
@@ -194,9 +225,38 @@ export default function ProfileMenu({
               </div>
             </Link>
 
+            {/* Agent Studio Link */}
+            <Link
+              to="/agents"
+              role="menuitem"
+              onClick={closeMenu}
+              className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50/80 dark:hover:bg-indigo-950/40 transition-all duration-150"
+            >
+              <div className="flex items-center gap-3">
+                <Bot className="h-4 w-4 text-indigo-500" />
+                <span>Autonomous Agent Studio</span>
+              </div>
+              <span className="rounded-full bg-indigo-500/15 border border-indigo-500/30 px-1.5 py-0.5 text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400">
+                AI
+              </span>
+            </Link>
+
+            {/* Business Banking Link */}
+            <Link
+              to="/banking"
+              role="menuitem"
+              onClick={closeMenu}
+              className="flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800/80 dark:hover:text-zinc-100 transition-all duration-150"
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="h-4 w-4 text-indigo-500" />
+                <span>Business Banking</span>
+              </div>
+            </Link>
+
             {/* Users Management */}
             <Link
-              to="/users"
+              to="/seller/users"
               role="menuitem"
               onClick={closeMenu}
               className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all duration-150 ${
@@ -213,12 +273,6 @@ export default function ProfileMenu({
                 />
                 <span>{t("nav.usersManagement", "Users Management")}</span>
               </div>
-
-              <span
-                className={`rounded-full ${themePreset.badgeBg} px-2 py-0.5 text-[10px] font-bold ${themePreset.badgeText}`}
-              >
-                100
-              </span>
             </Link>
           </div>
 
@@ -228,7 +282,7 @@ export default function ProfileMenu({
           <div className="space-y-1 p-1" role="none">
             {/* Settings */}
             <Link
-              to="/settings"
+              to="/seller/settings"
               role="menuitem"
               onClick={closeMenu}
               className={`flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-medium transition-all duration-150 ${

@@ -39,6 +39,22 @@ class OrderSerializer(serializers.ModelSerializer):
     customer_email = serializers.EmailField(source="user.email", read_only=True)
     promo_code = serializers.CharField(required=False, allow_blank=True)
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            mode = request.query_params.get("mode")
+            if request.user.effective_role == "seller" or mode == "seller":
+                store = getattr(getattr(request.user, "seller_profile", None), "store", None)
+                if store:
+                    data["items"] = [
+                        item for item in data.get("items", [])
+                        if isinstance(item.get("product"), dict) and isinstance(item["product"].get("store"), dict) and item["product"]["store"].get("id") == store.id
+                    ]
+                else:
+                    data["items"] = []
+        return data
+
     class Meta:
         model = Order
         fields = [

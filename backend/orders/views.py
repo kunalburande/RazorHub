@@ -14,17 +14,49 @@ class OrderViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        queryset = Order.objects.select_related("user", "payment").prefetch_related("items__product", "items__product__images")
+        queryset = Order.objects.select_related("user", "payment").prefetch_related("items__product", "items__product__images", "items__product__store")
+        mode = self.request.query_params.get("mode")
+        if mode == "seller" or user.effective_role == "seller":
+            store = getattr(getattr(user, "seller_profile", None), "store", None)
+            if not store:
+                return Order.objects.none()
+            return queryset.filter(items__product__store=store).distinct()
         if user.effective_role == "admin":
             return queryset
-        if user.effective_role == "seller":
-            store = getattr(getattr(user, "seller_profile", None), "store", None)
-            return queryset.filter(items__product__store=store).distinct()
         return queryset.filter(user=user)
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
         queryset = self.get_queryset()
+        user = request.user
+        mode = request.query_params.get("mode")
+        if user.effective_role == "seller" or mode == "seller":
+            store = getattr(getattr(user, "seller_profile", None), "store", None)
+            if not store:
+                return Response({
+                    "orders": 0,
+                    "pending": 0,
+                    "processing": 0,
+                    "delivered": 0,
+                    "revenue": "0",
+                })
+            from .models import OrderItem
+            from decimal import Decimal
+            seller_items = OrderItem.objects.filter(order__in=queryset, product__store=store)
+            order_ids = seller_items.values_list("order_id", flat=True).distinct()
+            orders_count = order_ids.count()
+            pending = Order.objects.filter(id__in=order_ids, status="pending").count()
+            processing = Order.objects.filter(id__in=order_ids, status="processing").count()
+            delivered = Order.objects.filter(id__in=order_ids, status="delivered").count()
+            revenue = sum((item.price * item.quantity for item in seller_items), Decimal("0"))
+            return Response({
+                "orders": orders_count,
+                "pending": pending,
+                "processing": processing,
+                "delivered": delivered,
+                "revenue": str(revenue),
+            })
+
         agg = queryset.aggregate(
             orders=Count("id"),
             pending=Count("id", filter=Q(status="pending")),

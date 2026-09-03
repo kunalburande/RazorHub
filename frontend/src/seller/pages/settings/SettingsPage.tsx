@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   Bell,
+  Bot,
   Database,
   Download,
   FlaskConical,
@@ -13,16 +14,20 @@ import {
   ShieldCheck,
   Smartphone,
   Sparkles,
+  Store,
   Sun,
   Upload,
   User,
 } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import Button from "../../components/ui/Button";
 import Select from "../../components/ui/Select";
 import Toggle from "../../components/ui/Toggle";
 import { type AccentColor, useThemeContext } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n";
+import { useAuth } from "../../../context/AuthContext";
+import { apiRequest } from "../../../lib/api";
 
 interface SettingsPageProps {
   darkMode: boolean;
@@ -40,6 +45,7 @@ export default function SettingsPage({
   addToast,
 }: SettingsPageProps) {
   const { t } = useTranslation();
+  const { user, token, refreshMe } = useAuth();
   const {
     accentColor,
     setAccentColor,
@@ -59,30 +65,51 @@ export default function SettingsPage({
     | "data"
   >("profile");
 
-  const DEFAULT_BIO =
-    "Senior E-Commerce Operations Lead & Systems Architect. Overseeing global catalog analytics, inventory management, and digital workflow optimizations.";
+  const [isSaving, setIsSaving] = useState(false);
+
+  // Compute real profile details from authenticated user
+  const realFullName =
+    [user?.first_name, user?.last_name].filter(Boolean).join(" ") ||
+    (user?.username && !user.username.includes("@") ? user.username : "") ||
+    (user?.email ? user.email.split("@")[0].replace(".", " ") : "Verified Seller");
+
+  const realEmail = user?.email || userProfile.email || "seller@razorhub.com";
+  const realStoreName =
+    user?.seller_profile?.store_name ||
+    user?.seller_profile?.business_name ||
+    (user?.role === "seller" ? `${realFullName}'s Store` : "RazorHub Merchant Store");
+
+  const realRole =
+    user?.role === "seller"
+      ? "Verified Store Owner"
+      : user?.effective_role === "admin"
+      ? "Enterprise Administrator"
+      : "Verified Merchant";
+
+  const defaultBioText = `Owner & Operator of ${realStoreName} • Managing verified retail inventory, customer orders, and automated commerce workflows on RazorHub.`;
 
   const getEffectiveBio = (bio?: string) =>
-    !bio || bio === "ddddddd" ? DEFAULT_BIO : bio;
+    !bio || bio === "ddddddd" || bio.includes("Rahul Kirana") ? defaultBioText : bio;
 
   // Profile Form State
   const [profile, setProfile] = useState({
-    fullName: userProfile.name,
-    email: userProfile.email,
-    role: userProfile.role,
-    bio: getEffectiveBio(userProfile.bio),
+    fullName: realFullName,
+    email: realEmail,
+    role: realRole,
+    storeName: realStoreName,
+    bio: user?.seller_profile?.store_description || getEffectiveBio(userProfile.bio),
   });
 
-  // Sync form state when userProfile loads or changes
+  // Sync form state when user or userProfile loads
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setProfile({
-      fullName: userProfile.name,
-      email: userProfile.email,
-      role: userProfile.role,
-      bio: getEffectiveBio(userProfile.bio),
+      fullName: realFullName,
+      email: realEmail,
+      role: realRole,
+      storeName: realStoreName,
+      bio: user?.seller_profile?.store_description || getEffectiveBio(userProfile.bio),
     });
-  }, [userProfile.name, userProfile.email, userProfile.role, userProfile.bio]);
+  }, [user?.first_name, user?.last_name, user?.email, user?.role, user?.seller_profile?.business_name, user?.seller_profile?.store_name, user?.seller_profile?.store_description]);
 
   const PRESET_AVATARS = [
     "https://avatars.githubusercontent.com/u/68702059?v=4",
@@ -194,23 +221,39 @@ export default function SettingsPage({
     }
   };
 
-  const handleSaveProfile = (e: React.FormEvent) => {
+  const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    setUserProfile((prev) => ({
-      ...prev,
-      name: profile.fullName,
-      email: profile.email,
-      role: profile.role,
-      bio: profile.bio,
-    }));
-    notify(
-      "success",
-      t("settings.toasts.profileSaved", "Profile Updated"),
-      t(
-        "settings.toasts.profileSavedMsg",
-        "Your administrator profile changes have been saved successfully.",
-      ),
-    );
+    setIsSaving(true);
+    try {
+      if (token) {
+        await apiRequest("/users/me/", {
+          token,
+          method: "PATCH",
+          body: {
+            full_name: profile.fullName,
+            business_name: profile.storeName,
+            bio: profile.bio,
+          },
+        });
+        await refreshMe();
+      }
+      setUserProfile((prev) => ({
+        ...prev,
+        name: profile.fullName,
+        email: profile.email,
+        role: profile.role,
+        bio: profile.bio,
+      }));
+      notify(
+        "success",
+        t("settings.toasts.profileSaved", "Profile Updated"),
+        "Your seller profile and store details have been saved to RazorHub.",
+      );
+    } catch (err: any) {
+      notify("error", "Update Failed", err.message || "Failed to update profile changes.");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExportData = () => {
@@ -285,12 +328,19 @@ export default function SettingsPage({
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Link
+            to="/agents"
+            className="inline-flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-500/10 hover:bg-indigo-500/20 px-3.5 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 transition-all hover:scale-105 active:scale-95"
+          >
+            <Bot className="h-3.5 w-3.5 text-indigo-500 animate-pulse" />
+            <span>Agent Studio →</span>
+          </Link>
           <span
             className={`inline-flex items-center gap-1.5 rounded-full border border-gray-200 ${themePreset.badgeBg} ${themePreset.badgeText} px-3 py-1 text-xs font-semibold dark:border-zinc-800`}
           >
             <Sparkles className="h-3.5 w-3.5" />
-            {t("common.enterpriseAdmin", "Enterprise Admin v2.4")}
+            <span>RazorHub Merchant Studio</span>
           </span>
         </div>
       </div>
@@ -449,6 +499,7 @@ export default function SettingsPage({
                     onChange={(e) =>
                       setProfile({ ...profile, fullName: e.target.value })
                     }
+                    placeholder="e.g. Amit Singh"
                     className="focus-accent w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs font-medium text-gray-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                   />
                 </div>
@@ -460,8 +511,42 @@ export default function SettingsPage({
                   <input
                     type="email"
                     value={profile.email}
+                    disabled
+                    title="Account email is managed via RazorHub auth"
+                    className="w-full cursor-not-allowed rounded-xl border border-gray-200 bg-gray-100/70 px-3.5 py-2.5 text-xs font-medium text-gray-500 opacity-90 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/30 dark:text-zinc-400"
+                  />
+                  <span className="mt-1 block text-[10px] text-emerald-600 dark:text-emerald-400 font-medium">
+                    ✓ Verified RazorHub Merchant Email
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-zinc-300">
+                    <Store className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>Store / Business Name</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.storeName}
                     onChange={(e) =>
-                      setProfile({ ...profile, email: e.target.value })
+                      setProfile({ ...profile, storeName: e.target.value })
+                    }
+                    placeholder="e.g. Amit Fashion House"
+                    className="focus-accent w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs font-medium text-gray-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-zinc-300">
+                    {t("settings.profile.roleDesc", "Role Description")}
+                  </label>
+                  <input
+                    type="text"
+                    value={profile.role}
+                    onChange={(e) =>
+                      setProfile({ ...profile, role: e.target.value })
                     }
                     className="focus-accent w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs font-medium text-gray-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                   />
@@ -470,21 +555,7 @@ export default function SettingsPage({
 
               <div>
                 <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-zinc-300">
-                  {t("settings.profile.roleDesc", "Role Description")}
-                </label>
-                <input
-                  type="text"
-                  value={profile.role}
-                  onChange={(e) =>
-                    setProfile({ ...profile, role: e.target.value })
-                  }
-                  className="focus-accent w-full rounded-xl border border-gray-200 bg-gray-50/50 px-3.5 py-2.5 text-xs font-medium text-gray-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
-                />
-              </div>
-
-              <div>
-                <label className="mb-1.5 block text-xs font-semibold text-gray-700 dark:text-zinc-300">
-                  {t("settings.profile.bioNotes", "Bio / Notes")}
+                  {t("settings.profile.bioNotes", "Bio / Store Operational Notes")}
                 </label>
                 <textarea
                   rows={3}
@@ -492,6 +563,7 @@ export default function SettingsPage({
                   onChange={(e) =>
                     setProfile({ ...profile, bio: e.target.value })
                   }
+                  placeholder="Describe your retail catalog, brand story, or operational focus..."
                   className="focus-accent w-full rounded-xl border border-gray-200 bg-gray-50/50 p-3.5 text-xs font-medium text-gray-900 focus:outline-none dark:border-zinc-700 dark:bg-zinc-800/50 dark:text-zinc-100"
                 />
               </div>
@@ -499,10 +571,11 @@ export default function SettingsPage({
               <div className="flex justify-end pt-2">
                 <Button
                   type="submit"
-                  className="bg-accent hover:bg-accent-hover shadow-accent-glow flex items-center gap-2 text-xs font-semibold text-white shadow-xs transition-all duration-200"
+                  disabled={isSaving}
+                  className="bg-accent hover:bg-accent-hover shadow-accent-glow flex items-center gap-2 text-xs font-semibold text-white shadow-xs transition-all duration-200 disabled:opacity-50 cursor-pointer"
                 >
                   <Save className="h-4 w-4" />
-                  {t("settings.profile.saveBtn", "Save Changes")}
+                  {isSaving ? "Saving to Database..." : t("settings.profile.saveBtn", "Save Changes")}
                 </Button>
               </div>
             </form>

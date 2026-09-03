@@ -48,7 +48,7 @@ type BankingTab =
   | 'approvals'
   | 'audit';
 
-export default function BusinessBankingPage() {
+export default function BusinessBankingPage({ embedded = false }: { embedded?: boolean }) {
   const { token, user } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -234,7 +234,7 @@ export default function BusinessBankingPage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 sm:py-8 space-y-6">
+    <div className={embedded ? 'space-y-6' : 'max-w-7xl mx-auto px-4 py-6 sm:py-8 space-y-6'}>
       
       {/* ── HEADER BANNER ── */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 border border-indigo-500/20 p-6 sm:p-8 text-white shadow-xl">
@@ -327,11 +327,11 @@ export default function BusinessBankingPage() {
                 <span className="p-1.5 rounded-xl bg-emerald-500/10 text-emerald-500"><Building2 className="w-4 h-4" /></span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-primary font-mono">
-                ₹{metrics ? metrics.cash_balance?.toLocaleString('en-IN') : '28,45,000'}
+                ₹{metrics ? (Number(metrics.cash_balance) || 0).toLocaleString('en-IN') : '0'}
               </p>
               <p className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
                 <ArrowUpRight className="w-3 h-3" />
-                <span>+₹1,42,500 today</span>
+                <span>+₹{metrics ? (Number(metrics.todays_revenue) || 0).toLocaleString('en-IN') : '0'} today</span>
               </p>
             </div>
 
@@ -341,10 +341,10 @@ export default function BusinessBankingPage() {
                 <span className="p-1.5 rounded-xl bg-indigo-500/10 text-indigo-500"><TrendingUp className="w-4 h-4" /></span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-indigo-600 font-mono">
-                {metrics ? metrics.cash_runway_months : '6.8'} Months
+                {metrics ? metrics.cash_runway_months : '0.0'} Months
               </p>
               <p className="text-[11px] text-secondary font-semibold">
-                Burn: ₹{metrics ? (metrics.burn_rate / 100000).toFixed(2) : '4.20'}L / mo
+                Burn: ₹{metrics && metrics.burn_rate ? (metrics.burn_rate / 100000).toFixed(2) : '0.00'}L / mo
               </p>
             </div>
 
@@ -354,10 +354,10 @@ export default function BusinessBankingPage() {
                 <span className="p-1.5 rounded-xl bg-amber-500/10 text-amber-500"><Clock className="w-4 h-4" /></span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-amber-600 font-mono">
-                ₹{metrics ? metrics.outstanding_receivables?.toLocaleString('en-IN') : '2,85,000'}
+                ₹{metrics ? (Number(metrics.outstanding_receivables) || 0).toLocaleString('en-IN') : '0'}
               </p>
               <p className="text-[11px] text-secondary">
-                Receivables Agent active on 2 overdue accounts
+                {metrics?.outstanding_receivables > 0 ? 'Receivables Agent active on pending invoices' : 'All invoices settled & clear'}
               </p>
             </div>
 
@@ -367,7 +367,7 @@ export default function BusinessBankingPage() {
                 <span className="p-1.5 rounded-xl bg-purple-500/10 text-purple-500"><DollarSign className="w-4 h-4" /></span>
               </div>
               <p className="text-2xl sm:text-3xl font-black text-purple-600 font-mono">
-                ₹{metrics ? metrics.upcoming_payouts?.toLocaleString('en-IN') : '1,18,500'}
+                ₹{metrics ? (Number(metrics.upcoming_payouts) || 0).toLocaleString('en-IN') : '0'}
               </p>
               <p className="text-[11px] text-secondary">
                 Governed via Zero-Trust Transaction Firewall
@@ -379,11 +379,11 @@ export default function BusinessBankingPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs bg-surface p-5 rounded-3xl border border-border">
             <div className="flex items-center justify-between p-3 rounded-2xl bg-background border border-border">
               <span className="text-secondary font-semibold">Payment Success Rate:</span>
-              <span className="font-bold text-emerald-600 font-mono">98.4%</span>
+              <span className="font-bold text-emerald-600 font-mono">{metrics?.payment_success_rate ?? 100}%</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-2xl bg-background border border-border">
               <span className="text-secondary font-semibold">Refund Rate (Gateway):</span>
-              <span className="font-bold text-primary font-mono">4.2%</span>
+              <span className="font-bold text-primary font-mono">{metrics?.refund_rate ?? 0.0}%</span>
             </div>
             <div className="flex items-center justify-between p-3 rounded-2xl bg-background border border-border">
               <span className="text-secondary font-semibold">Bank Reconciliation:</span>
@@ -398,25 +398,37 @@ export default function BusinessBankingPage() {
                 <h3 className="text-sm font-bold text-primary">14-Day Projected Cash Balance Trajectory</h3>
                 <p className="text-xs text-secondary">Calculated by autonomous Insights Agent with scheduled receivables & payouts.</p>
               </div>
-              <span className="text-xs font-mono font-bold text-emerald-600">Net Surplus: +₹4.72L</span>
+              <span className="text-xs font-mono font-bold text-emerald-600">
+                {metrics?.cash_balance > 0 ? `Net Surplus: +₹${((metrics.cash_balance)/100000).toFixed(2)}L` : 'Awaiting First Transaction'}
+              </span>
             </div>
 
-            <div className="grid grid-cols-7 sm:grid-cols-14 gap-2 pt-2">
-              {(metrics?.cashflow_forecast || []).map((f: any, idx: number) => (
-                <div key={idx} className="p-2 rounded-xl bg-background border border-border text-center space-y-1">
-                  <span className="text-[9px] text-secondary font-semibold block">{f.day}</span>
-                  <div className="w-full h-12 rounded bg-muted flex items-end justify-center overflow-hidden">
-                    <div
-                      style={{ height: `${Math.min(100, Math.max(30, (f.projected_balance / 3500000) * 100))}%` }}
-                      className="w-full bg-indigo-600 rounded-t"
-                    />
+            {(!metrics?.cashflow_forecast || metrics.cashflow_forecast.length === 0 || metrics.cash_balance === 0) ? (
+              <div className="p-8 rounded-2xl bg-background border border-dashed border-border text-center space-y-2">
+                <Building2 className="w-8 h-8 text-secondary/40 mx-auto" />
+                <p className="text-xs font-bold text-primary">No Financial Cashflows Yet</p>
+                <p className="text-[11px] text-secondary max-w-sm mx-auto">
+                  When customer purchases or vendor invoices are processed, the autonomous Insights Agent will project live 14-day liquidity trajectories.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-7 sm:grid-cols-14 gap-2 pt-2">
+                {(metrics?.cashflow_forecast || []).map((f: any, idx: number) => (
+                  <div key={idx} className="p-2 rounded-xl bg-background border border-border text-center space-y-1">
+                    <span className="text-[9px] text-secondary font-semibold block">{f.day}</span>
+                    <div className="w-full h-12 rounded bg-muted flex items-end justify-center overflow-hidden">
+                      <div
+                        style={{ height: `${Math.min(100, Math.max(30, (f.projected_balance / 3500000) * 100))}%` }}
+                        className="w-full bg-indigo-600 rounded-t"
+                      />
+                    </div>
+                    <span className="text-[9px] font-mono font-bold text-primary block">
+                      ₹{(f.projected_balance / 100000).toFixed(1)}L
+                    </span>
                   </div>
-                  <span className="text-[9px] font-mono font-bold text-primary block">
-                    ₹{(f.projected_balance / 100000).toFixed(1)}L
-                  </span>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       )}

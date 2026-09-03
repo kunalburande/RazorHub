@@ -35,7 +35,7 @@ export default function GoogleFinanceChart({
     }, 0);
   }, [products, propTotalWorth]);
 
-  // Generate 100% dynamic time series proportional to current real valuation
+  // Generate truthful timeline tracking catalog asset valuation
   const dynamicDatasets = useMemo<
     Record<
       TimeRange,
@@ -46,82 +46,75 @@ export default function GoogleFinanceChart({
       }
     >
   >(() => {
-    const baseVal = Math.max(currentWorth, 10000);
+    const baseVal = currentWorth;
 
     // 1M timeline: 7 intervals over past 30 days
     const points1M: DataPoint[] = [
-      { label: "Day 1", value: Math.round(baseVal * 0.91), date: "1 month ago" },
-      { label: "Day 5", value: Math.round(baseVal * 0.93), date: "25 days ago" },
-      { label: "Day 10", value: Math.round(baseVal * 0.92), date: "20 days ago" },
-      { label: "Day 15", value: Math.round(baseVal * 0.95), date: "15 days ago" },
-      { label: "Day 20", value: Math.round(baseVal * 0.96), date: "10 days ago" },
-      { label: "Day 25", value: Math.round(baseVal * 0.98), date: "5 days ago" },
-      { label: "Today", value: Math.round(baseVal), date: "Today" },
+      { label: "Day 1", value: baseVal, date: "1 month ago" },
+      { label: "Day 5", value: baseVal, date: "25 days ago" },
+      { label: "Day 10", value: baseVal, date: "20 days ago" },
+      { label: "Day 15", value: baseVal, date: "15 days ago" },
+      { label: "Day 20", value: baseVal, date: "10 days ago" },
+      { label: "Day 25", value: baseVal, date: "5 days ago" },
+      { label: "Today", value: baseVal, date: "Today" },
     ];
 
     // 6M timeline: 6 monthly intervals
     const points6M: DataPoint[] = [
-      { label: "Mar", value: Math.round(baseVal * 0.68), date: "Mar 2026" },
-      { label: "Apr", value: Math.round(baseVal * 0.74), date: "Apr 2026" },
-      { label: "May", value: Math.round(baseVal * 0.81), date: "May 2026" },
-      { label: "Jun", value: Math.round(baseVal * 0.85), date: "Jun 2026" },
-      { label: "Jul", value: Math.round(baseVal * 0.92), date: "Jul 2026" },
-      { label: "Aug", value: Math.round(baseVal), date: "Aug 2026 (Live)" },
+      { label: "Mar", value: baseVal, date: "Mar 2026" },
+      { label: "Apr", value: baseVal, date: "Apr 2026" },
+      { label: "May", value: baseVal, date: "May 2026" },
+      { label: "Jun", value: baseVal, date: "Jun 2026" },
+      { label: "Jul", value: baseVal, date: "Jul 2026" },
+      { label: "Aug", value: baseVal, date: "Aug 2026 (Live)" },
     ];
 
     // 1Y timeline: 12 monthly intervals
     const points1Y: DataPoint[] = [
-      { label: "Sep", value: Math.round(baseVal * 0.42), date: "Sep 2025" },
-      { label: "Oct", value: Math.round(baseVal * 0.48), date: "Oct 2025" },
-      { label: "Nov", value: Math.round(baseVal * 0.55), date: "Nov 2025" },
-      { label: "Dec", value: Math.round(baseVal * 0.62), date: "Dec 2025" },
-      { label: "Jan", value: Math.round(baseVal * 0.58), date: "Jan 2026" },
-      { label: "Feb", value: Math.round(baseVal * 0.67), date: "Feb 2026" },
-      { label: "Mar", value: Math.round(baseVal * 0.73), date: "Mar 2026" },
-      { label: "Apr", value: Math.round(baseVal * 0.79), date: "Apr 2026" },
-      { label: "May", value: Math.round(baseVal * 0.84), date: "May 2026" },
-      { label: "Jun", value: Math.round(baseVal * 0.88), date: "Jun 2026" },
-      { label: "Jul", value: Math.round(baseVal * 0.94), date: "Jul 2026" },
-      { label: "Aug", value: Math.round(baseVal), date: "Aug 2026 (Live)" },
+      { label: "Sep", value: baseVal, date: "Sep 2025" },
+      { label: "Oct", value: baseVal, date: "Oct 2025" },
+      { label: "Nov", value: baseVal, date: "Nov 2025" },
+      { label: "Dec", value: baseVal, date: "Dec 2025" },
+      { label: "Jan", value: baseVal, date: "Jan 2026" },
+      { label: "Feb", value: baseVal, date: "Feb 2026" },
+      { label: "Mar", value: baseVal, date: "Mar 2026" },
+      { label: "Apr", value: baseVal, date: "Apr 2026" },
+      { label: "May", value: baseVal, date: "May 2026" },
+      { label: "Jun", value: baseVal, date: "Jun 2026" },
+      { label: "Jul", value: baseVal, date: "Jul 2026" },
+      { label: "Aug", value: baseVal, date: "Aug 2026 (Live)" },
     ];
 
     // ALL timeline: 5 yearly intervals
     const pointsALL: DataPoint[] = [
-      { label: "2022", value: Math.round(baseVal * 0.15), date: "Year 2022" },
-      { label: "2023", value: Math.round(baseVal * 0.32), date: "Year 2023" },
-      { label: "2024", value: Math.round(baseVal * 0.54), date: "Year 2024" },
-      { label: "2025", value: Math.round(baseVal * 0.78), date: "Year 2025" },
-      { label: "2026", value: Math.round(baseVal), date: "Year 2026 (Current)" },
+      { label: "2022", value: baseVal, date: "Year 2022" },
+      { label: "2023", value: baseVal, date: "Year 2023" },
+      { label: "2024", value: baseVal, date: "Year 2024" },
+      { label: "2025", value: baseVal, date: "Year 2025" },
+      { label: "2026", value: baseVal, date: "Year 2026 (Current)" },
     ];
 
-    const diff1Y = baseVal - Math.round(baseVal * 0.42);
-    const pct1Y = (((baseVal - Math.round(baseVal * 0.42)) / (baseVal * 0.42)) * 100).toFixed(1);
-
-    const diff6M = baseVal - Math.round(baseVal * 0.68);
-    const pct6M = (((baseVal - Math.round(baseVal * 0.68)) / (baseVal * 0.68)) * 100).toFixed(1);
-
-    const diff1M = baseVal - Math.round(baseVal * 0.91);
-    const pct1M = (((baseVal - Math.round(baseVal * 0.91)) / (baseVal * 0.91)) * 100).toFixed(1);
+    const note = baseVal > 0 ? "Live Catalog Asset • ₹0 Sales Realized" : "0 Products in Catalog";
 
     return {
       "1M": {
         points: points1M,
-        changeText: `+₹${diff1M.toLocaleString("en-IN")} (+${pct1M}%) past month`,
+        changeText: note,
         isPositive: true,
       },
       "6M": {
         points: points6M,
-        changeText: `+₹${diff6M.toLocaleString("en-IN")} (+${pct6M}%) past 6 months`,
+        changeText: note,
         isPositive: true,
       },
       "1Y": {
         points: points1Y,
-        changeText: `+₹${diff1Y.toLocaleString("en-IN")} (+${pct1Y}%) past year`,
+        changeText: note,
         isPositive: true,
       },
       ALL: {
         points: pointsALL,
-        changeText: `+₹${Math.round(baseVal * 0.85).toLocaleString("en-IN")} (+566%) all time`,
+        changeText: note,
         isPositive: true,
       },
     };
@@ -194,7 +187,7 @@ export default function GoogleFinanceChart({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold tracking-wider text-gray-500 uppercase dark:text-slate-400">
-              Total Revenue Valuation
+              Catalog Inventory Valuation
             </span>
             <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
           </div>
@@ -203,12 +196,12 @@ export default function GoogleFinanceChart({
             <span className="text-2xl font-black tracking-tight text-gray-900 sm:text-3xl dark:text-white">
               ₹{activePoint.value.toLocaleString("en-IN")}
             </span>
-            <span className="rounded-md bg-emerald-500/10 px-2 py-0.5 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+            <span className="rounded-md bg-indigo-500/10 px-2 py-0.5 text-xs font-bold text-indigo-600 dark:text-indigo-400">
               {currentDataset.changeText}
             </span>
           </div>
           <p className="text-[11px] font-medium text-gray-400 dark:text-slate-500">
-            {activePoint.date}
+            {activePoint.date} • Realized revenue curve tracks dynamically upon customer checkout
           </p>
         </div>
 

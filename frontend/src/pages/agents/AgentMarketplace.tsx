@@ -186,7 +186,7 @@ export default function AgentMarketplace() {
   };
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="mx-auto max-w-[1360px] w-full px-4 sm:px-6 lg:px-8 py-6 space-y-8 pb-16 min-w-0">
       
       {/* Header Banner */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-blue-950 text-white p-8 sm:p-10 shadow-xl border border-indigo-500/20">

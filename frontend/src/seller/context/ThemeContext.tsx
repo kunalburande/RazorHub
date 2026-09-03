@@ -101,11 +101,11 @@ interface ThemeContextType {
 }
 
 const DEFAULT_USER: UserProfile = {
-  name: "Rahul Sharma",
-  email: "[EMAIL_ADDRESS]",
-  role: "Owner",
-  avatarUrl: "https://avatars.githubusercontent.com/u/68702059?v=4",
-  bio: "Owner of Rahul Kirana Store",
+  name: "Verified Seller",
+  email: "seller@razorhub.com",
+  role: "Store Owner",
+  avatarUrl: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80",
+  bio: "Owner of Verified Store • Managing catalog, order fulfillment, and autonomous retail workflows on RazorHub.",
 };
 
 const DEFAULT_ACCENT: AccentColor = "#4f46e5";
@@ -127,10 +127,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (parsed && (parsed.bio === "ddddddd" || !parsed.bio)) {
-            parsed.bio = DEFAULT_USER.bio;
+          if (parsed) {
+            // Clean legacy hardcoded Rahul Sharma mock data if present in localStorage
+            if (parsed.name === "Rahul Sharma" || parsed.email === "[EMAIL_ADDRESS]" || parsed.bio?.includes("Rahul Kirana")) {
+              localStorage.removeItem("app_user_profile");
+              return DEFAULT_USER;
+            }
+            if (parsed.bio === "ddddddd" || !parsed.bio) {
+              parsed.bio = DEFAULT_USER.bio;
+            }
+            return parsed;
           }
-          return parsed;
         } catch {
           // Fallback
         }

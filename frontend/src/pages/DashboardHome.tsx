@@ -378,8 +378,8 @@ function CustomerDashboard() {
       </div>
 
       {/* ── Main Unified Dashboard Layout ── */}
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 items-start">
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 w-full min-w-0">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_minmax(0,1fr)] gap-8 items-start w-full min-w-0">
           
           {/* ── Single Unified Left Navigation ── */}
           <aside className="rounded-2xl border border-border bg-surface p-3 shadow-xs space-y-1 lg:sticky lg:top-24">
@@ -423,7 +423,7 @@ function CustomerDashboard() {
           </aside>
 
           {/* ── Main Active Section Content Panel ── */}
-          <main className="space-y-6">
+          <main className="space-y-6 min-w-0 w-full overflow-hidden">
             {/* ── Persistent AI-Native Command Center ── */}
             <AiCommandCenter />
 

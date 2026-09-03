@@ -91,6 +91,40 @@ export interface StoreType {
 
 export const PRODUCT_FALLBACK_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400' width='400' height='400'%3E%3Crect width='400' height='400' fill='%23f8fafc'/%3E%3Cpath d='M140 150 C140 115 165 95 200 95 C235 95 260 115 260 150 M110 150 L290 150 L305 310 L95 310 Z' fill='none' stroke='%2394a3b8' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='200' cy='225' r='18' fill='%23cbd5e1'/%3E%3C/svg%3E";
 
+export const CATEGORY_FALLBACK_IMAGES: Record<string, string> = {
+  headphones: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80',
+  audio: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=600&auto=format&fit=crop&q=80',
+  laptop: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&auto=format&fit=crop&q=80',
+  tech: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&auto=format&fit=crop&q=80',
+  computer: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=600&auto=format&fit=crop&q=80',
+  phone: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&auto=format&fit=crop&q=80',
+  smartphone: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&auto=format&fit=crop&q=80',
+  mobile: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&auto=format&fit=crop&q=80',
+  storage: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=600&auto=format&fit=crop&q=80',
+  drive: 'https://images.unsplash.com/photo-1597872200969-2b65d56bd16b?w=600&auto=format&fit=crop&q=80',
+  apparel: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80',
+  clothing: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80',
+  fashion: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=600&auto=format&fit=crop&q=80',
+  shoes: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80',
+  sneakers: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80',
+  footwear: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=600&auto=format&fit=crop&q=80',
+  backpack: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+  bag: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+  foldsack: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=600&auto=format&fit=crop&q=80',
+  watch: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600&auto=format&fit=crop&q=80',
+  camera: 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80',
+  electronics: 'https://images.unsplash.com/photo-1498049794561-7780e7231661?w=600&auto=format&fit=crop&q=80',
+};
+
+export function getCategoryFallbackImage(categoryOrName?: string): string {
+  if (!categoryOrName) return CATEGORY_FALLBACK_IMAGES.electronics;
+  const lower = categoryOrName.toLowerCase();
+  for (const [key, url] of Object.entries(CATEGORY_FALLBACK_IMAGES)) {
+    if (lower.includes(key)) return url;
+  }
+  return CATEGORY_FALLBACK_IMAGES.electronics;
+}
+
 export function normalizeImageUrl(url?: string | null): string {
   if (!url) return '';
   if (url.includes('razorhub.vercel.app/product-media/')) {
@@ -99,14 +133,19 @@ export function normalizeImageUrl(url?: string | null): string {
   return url;
 }
 
-export function productImage(product: ProductType) {
-  if (!product) return '';
-  if (product.image_url) return normalizeImageUrl(product.image_url);
-  if (Array.isArray(product.images) && product.images.length > 0) {
-    const found = product.images.find((image) => image.is_primary)?.image_url || product.images[0]?.image_url || '';
-    return normalizeImageUrl(found);
+export function productImage(product: any): string {
+  if (!product) return getCategoryFallbackImage();
+  let rawUrl = '';
+  if (product.image_url) {
+    rawUrl = product.image_url;
+  } else if (Array.isArray(product.images) && product.images.length > 0) {
+    rawUrl = product.images.find((image: any) => image.is_primary)?.image_url || product.images[0]?.image_url || '';
   }
-  return '';
+  if (rawUrl && typeof rawUrl === 'string' && rawUrl.trim().length > 0) {
+    return normalizeImageUrl(rawUrl);
+  }
+  const catName = (typeof product.category === 'string' ? product.category : product.category?.name) || product.name || '';
+  return getCategoryFallbackImage(catName);
 }
 
 export function price(product: ProductType) {

@@ -153,15 +153,15 @@ export default function AiCommandCenter({ onActionExecuted }: { onActionExecuted
   };
 
   return (
-    <div className="w-full space-y-4">
+    <div className="w-full min-w-0 max-w-full space-y-4">
       {/* ── Persistent Natural-Language Command Bar ── */}
-      <div className="relative rounded-3xl bg-surface border-2 border-indigo-500/30 shadow-lg p-2.5 sm:p-3 transition-all focus-within:border-indigo-500 focus-within:shadow-indigo-500/10">
+      <div className="relative rounded-3xl bg-surface border-2 border-indigo-500/30 shadow-lg p-2.5 sm:p-3 transition-all focus-within:border-indigo-500 focus-within:shadow-indigo-500/10 min-w-0 max-w-full overflow-hidden">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             handleExecute();
           }}
-          className="flex items-center gap-3"
+          className="flex items-center gap-3 min-w-0"
         >
           <div className="pl-3 flex items-center justify-center shrink-0">
             <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center shadow-md shadow-indigo-500/25">
@@ -174,7 +174,7 @@ export default function AiCommandCenter({ onActionExecuted }: { onActionExecuted
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Ask anything or tell me what to do... (e.g. 'Show today\'s revenue', 'Pay Rahul ₹18,500')"
-            className="flex-1 bg-transparent text-xs sm:text-sm text-primary placeholder:text-secondary/70 focus:outline-none font-medium"
+            className="flex-1 min-w-0 bg-transparent text-xs sm:text-sm text-primary placeholder:text-secondary/70 focus:outline-none font-medium"
           />
 
           <button
@@ -188,7 +188,7 @@ export default function AiCommandCenter({ onActionExecuted }: { onActionExecuted
         </form>
 
         {/* Quick Example Prompt Chips */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pt-2.5 pb-1 px-2 text-[11px] scrollbar-none border-t border-border/50 mt-2">
+        <div className="flex items-center gap-1.5 overflow-x-auto pt-2.5 pb-1 px-2 text-[11px] scrollbar-none border-t border-border/50 mt-2 min-w-0 max-w-full">
           <span className="text-secondary font-bold shrink-0 mr-1 flex items-center gap-1">
             <Zap className="w-3 h-3 text-amber-500" /> Examples:
           </span>
@@ -197,7 +197,7 @@ export default function AiCommandCenter({ onActionExecuted }: { onActionExecuted
               key={idx}
               type="button"
               onClick={() => handleExecute(p)}
-              className="px-2.5 py-1 rounded-xl bg-muted/60 hover:bg-muted border border-border/70 text-secondary hover:text-primary whitespace-nowrap transition cursor-pointer font-medium"
+              className="px-2.5 py-1 rounded-xl bg-muted/60 hover:bg-muted border border-border/70 text-secondary hover:text-primary whitespace-nowrap transition cursor-pointer font-medium shrink-0"
             >
               {p}
             </button>

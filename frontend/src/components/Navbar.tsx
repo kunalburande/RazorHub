@@ -9,7 +9,6 @@ import {
   User,
   X,
   MapPin,
-  HelpCircle,
   Store,
   Heart,
   ChevronDown,
@@ -17,6 +16,8 @@ import {
   Flame,
   Bot,
   Building2,
+  Package,
+  ShieldCheck,
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
@@ -266,6 +267,7 @@ export default function Navbar() {
 
   const { totalCount } = useCart();
   const { user } = useAuth();
+  const userRole = user?.effective_role || user?.role;
   const { theme } = useTheme();
   const { t } = useTranslation();
   const location = useLocation();
@@ -337,24 +339,6 @@ export default function Navbar() {
               <span>Stores</span>
             </Link>
 
-            <Link
-              to="/help-center"
-              className="hidden xl:flex items-center gap-1.5 text-xs font-semibold text-secondary hover:text-primary transition-colors"
-            >
-              <HelpCircle className="h-4 w-4 text-accent" />
-              <span>Help Center</span>
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent('open-ai-studio'));
-              }}
-              className="inline-flex items-center gap-1.5 text-xs font-bold text-white transition-all bg-gradient-to-tr from-indigo-600 via-indigo-500 to-purple-600 px-3.5 py-1.5 rounded-full shadow-md shadow-indigo-500/25 hover:shadow-lg hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              <Sparkles className="h-3.5 w-3.5 text-amber-300 animate-pulse" />
-              <span>AI Shop</span>
-            </button>
 
             <ThemeToggle />
 
@@ -421,33 +405,112 @@ export default function Navbar() {
             </div>
 
             <div className="flex items-center gap-3 shrink-0 pl-4 border-l border-border/60 text-xs font-semibold">
-              <Link
-                to="/banking"
-                className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-accent font-bold transition-colors"
-              >
-                <Building2 className="h-3.5 w-3.5" />
-                <span>Banking</span>
-              </Link>
-              <Link
-                to="/agents"
-                className="flex items-center gap-1 text-secondary hover:text-accent transition-colors"
-              >
-                <Bot className="h-3.5 w-3.5 text-indigo-500" />
-                <span>Agent Studio</span>
-              </Link>
+              {userRole === 'admin' && (
+                <>
+                  <Link
+                    to="/banking"
+                    className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-accent font-bold transition-colors"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Banking</span>
+                  </Link>
+                  <Link
+                    to="/agents"
+                    className="flex items-center gap-1 text-secondary hover:text-accent transition-colors"
+                  >
+                    <Bot className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>Agent Studio</span>
+                  </Link>
+                  <Link
+                    to="/seller"
+                    className="text-secondary hover:text-accent transition-colors"
+                  >
+                    Seller Hub
+                  </Link>
+                  <Link
+                    to="/admin"
+                    className="flex items-center gap-1 text-accent hover:opacity-80 font-bold transition-colors"
+                  >
+                    <ShieldCheck className="h-3.5 w-3.5" />
+                    <span>Admin Panel</span>
+                  </Link>
+                </>
+              )}
 
-              <Link
-                to="/seller"
-                className="text-secondary hover:text-accent transition-colors"
-              >
-                Seller Hub
-              </Link>
-              <Link
-                to="/docs"
-                className="text-secondary hover:text-accent transition-colors"
-              >
-                Docs
-              </Link>
+              {userRole === 'seller' && (
+                <>
+                  <Link
+                    to="/banking"
+                    className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-accent font-bold transition-colors"
+                  >
+                    <Building2 className="h-3.5 w-3.5" />
+                    <span>Banking</span>
+                  </Link>
+                  <Link
+                    to="/agents"
+                    className="flex items-center gap-1 text-secondary hover:text-accent transition-colors"
+                  >
+                    <Bot className="h-3.5 w-3.5 text-indigo-500" />
+                    <span>Agent Studio</span>
+                  </Link>
+                  <Link
+                    to="/seller"
+                    className="text-secondary hover:text-accent font-bold transition-colors"
+                  >
+                    Seller Hub
+                  </Link>
+                </>
+              )}
+
+              {userRole === 'customer' && (
+                <>
+                  <Link
+                    to="/dashboard/orders"
+                    className="flex items-center gap-1 text-secondary hover:text-primary transition-colors"
+                  >
+                    <Package className="h-3.5 w-3.5 text-accent" />
+                    <span>My Orders</span>
+                  </Link>
+                  <Link
+                    to="/wishlist"
+                    className="flex items-center gap-1 text-secondary hover:text-primary transition-colors"
+                  >
+                    <Heart className="h-3.5 w-3.5 text-rose-500" />
+                    <span>Wishlist</span>
+                  </Link>
+                  <Link
+                    to="/seller"
+                    className="text-secondary hover:text-accent font-semibold transition-colors"
+                  >
+                    Sell on RazorHub
+                  </Link>
+                </>
+              )}
+
+              {!userRole && (
+                <>
+                  <Link
+                    to="/login"
+                    className="flex items-center gap-1 text-secondary hover:text-primary transition-colors"
+                  >
+                    <Package className="h-3.5 w-3.5 text-accent" />
+                    <span>Track Order</span>
+                  </Link>
+                  <Link
+                    to="/wishlist"
+                    className="flex items-center gap-1 text-secondary hover:text-primary transition-colors"
+                  >
+                    <Heart className="h-3.5 w-3.5 text-rose-500" />
+                    <span>Wishlist</span>
+                  </Link>
+                  <Link
+                    to="/seller"
+                    className="text-secondary hover:text-accent font-semibold transition-colors"
+                  >
+                    Sell on RazorHub
+                  </Link>
+                </>
+              )}
             </div>
 
           </div>
@@ -563,13 +626,6 @@ export default function Navbar() {
                 </Link>
                 <Link
                   onClick={closeMenu}
-                  to="/ai"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-accent hover:bg-muted"
-                >
-                  <Sparkles className="h-4 w-4" /> AI Shopping
-                </Link>
-                <Link
-                  onClick={closeMenu}
                   to="/cart"
                   className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
                 >
@@ -580,27 +636,117 @@ export default function Navbar() {
                     </span>
                   )}
                 </Link>
-                <Link
-                  onClick={closeMenu}
-                  to="/banking"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-muted"
-                >
-                  <Building2 className="h-4 w-4" /> Business Banking
-                </Link>
-                <Link
-                  onClick={closeMenu}
-                  to="/agents"
-                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
-                >
-                  <Bot className="h-4 w-4 text-indigo-500" /> Agent Studio
-                </Link>
-                <Link
-                  onClick={closeMenu}
-                  to="/seller"
-                  className="block rounded-lg px-3 py-2 text-sm font-semibold text-secondary hover:bg-muted"
-                >
-                  Seller Dashboard
-                </Link>
+
+                {userRole === 'admin' && (
+                  <>
+                    <Link
+                      onClick={closeMenu}
+                      to="/banking"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-muted"
+                    >
+                      <Building2 className="h-4 w-4" /> Business Banking
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/agents"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                    >
+                      <Bot className="h-4 w-4 text-indigo-500" /> Agent Studio
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/seller"
+                      className="block rounded-lg px-3 py-2 text-sm font-semibold text-secondary hover:bg-muted"
+                    >
+                      Seller Dashboard
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/admin"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-accent hover:bg-muted"
+                    >
+                      <ShieldCheck className="h-4 w-4" /> Admin Console
+                    </Link>
+                  </>
+                )}
+
+                {userRole === 'seller' && (
+                  <>
+                    <Link
+                      onClick={closeMenu}
+                      to="/banking"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-muted"
+                    >
+                      <Building2 className="h-4 w-4" /> Business Banking
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/agents"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                    >
+                      <Bot className="h-4 w-4 text-indigo-500" /> Agent Studio
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/seller"
+                      className="block rounded-lg px-3 py-2 text-sm font-semibold text-secondary hover:bg-muted"
+                    >
+                      Seller Dashboard
+                    </Link>
+                  </>
+                )}
+
+                {userRole === 'customer' && (
+                  <>
+                    <Link
+                      onClick={closeMenu}
+                      to="/dashboard/orders"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                    >
+                      <Package className="h-4 w-4 text-accent" /> My Orders
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/wishlist"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                    >
+                      <Heart className="h-4 w-4 text-rose-500" /> Wishlist
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/seller"
+                      className="block rounded-lg px-3 py-2 text-sm font-semibold text-secondary hover:bg-muted"
+                    >
+                      Sell on RazorHub
+                    </Link>
+                  </>
+                )}
+
+                {!userRole && (
+                  <>
+                    <Link
+                      onClick={closeMenu}
+                      to="/login"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                    >
+                      <Package className="h-4 w-4 text-accent" /> Track Order
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/wishlist"
+                      className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                    >
+                      <Heart className="h-4 w-4 text-rose-500" /> Wishlist
+                    </Link>
+                    <Link
+                      onClick={closeMenu}
+                      to="/seller"
+                      className="block rounded-lg px-3 py-2 text-sm font-semibold text-secondary hover:bg-muted"
+                    >
+                      Sell on RazorHub
+                    </Link>
+                  </>
+                )}
               </div>
 
 

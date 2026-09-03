@@ -10,88 +10,25 @@ interface OrdersPageProps {
   mode: 'customer' | 'seller' | 'admin';
 }
 
-function mockOrder(id: number, customerEmail: string, status: OrderType['status'], items: Array<[string, number]>, total: number, payment = 'razorpay', delivery = 'delivery'): OrderType {
-  return {
-    id,
-    customer_email: customerEmail,
-    status,
-    payment_method: payment,
-    delivery_method: delivery,
-    delivery_fee: '50',
-    promo_code: '',
-    discount_amount: '0',
-    total_price: String(total),
-    shipping_address: 'Bengaluru, India',
-    customer_note: '',
-    items: items.map(([name, quantity], i) => ({
-      id: i + 1,
-      product: {
-        id: i + 1,
-        name,
-        slug: name.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        category: { id: 1, name: 'Demo', slug: 'demo' },
-        brand: null,
-        description: '',
-        specifications: '',
-        specs: [],
-        price: '0',
-        discount_price: null,
-        stock: 10,
-        rating: '0',
-        tag: null,
-        is_featured: false,
-        is_active: true,
-        images: [],
-      },
-      quantity,
-      price: String(total),
-    })),
-    created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString(),
-  };
-}
-
-const DEMO_SELLER_ORDERS: OrderType[] = [
-  mockOrder(1001, 'rohit.sharma@gmail.com', 'pending', [['Organic Basmati Rice 5kg', 1], ['Cold Pressed Coconut Oil', 1]], 1250, 'razorpay'),
-  mockOrder(1002, 'priya.patel@outlook.com', 'processing', [['Pure Forest Honey 500g', 2]], 890, 'razorpay'),
-  mockOrder(1003, 'ananya.iyer@gmail.com', 'shipped', [['Handmade Silk Scarf', 1]], 1450, 'razorpay'),
-  mockOrder(1004, 'vikram.singh@gmail.com', 'delivered', [['Assam Premium CTC Tea 1kg', 2]], 750, 'cod'),
-];
-
-const DEMO_CUSTOMER_ORDERS: OrderType[] = [
-  mockOrder(1001, 'demo.customer@razorhub.local', 'delivered', [['Organic Basmati Rice 5kg', 1]], 650, 'razorpay'),
-  mockOrder(1002, 'demo.customer@razorhub.local', 'shipped', [['Pure Forest Honey 500g', 1]], 450, 'cod'),
-];
-
-const DEMO_ADMIN_ORDERS: OrderType[] = DEMO_SELLER_ORDERS;
-
 export default function OrdersPage({ mode }: OrdersPageProps) {
-  const { token, isDemo } = useAuth();
+  const { token } = useAuth();
   const { t } = useTranslation();
   const [orders, setOrders] = useState<OrderType[]>([]);
   const [error, setError] = useState('');
 
   function loadOrders() {
-    apiRequest<any>('/orders/', { token })
+    const url = mode === 'seller' ? '/orders/?mode=seller' : '/orders/';
+    apiRequest<any>(url, { token })
       .then((data) => setOrders(unwrapList<OrderType>(data)))
       .catch(() => setError(t('common.errorRequest', { defaultValue: 'Request failed' })));
   }
 
   useEffect(() => {
-    if (isDemo) {
-      setOrders(mode === 'customer' ? DEMO_CUSTOMER_ORDERS : mode === 'seller' ? DEMO_SELLER_ORDERS : DEMO_ADMIN_ORDERS);
-      setError('');
-      return;
-    }
     loadOrders();
-  }, [token, isDemo, mode]);
+  }, [token, mode]);
 
   async function updateStatus(orderId: number, status: string) {
     setError('');
-    if (isDemo) {
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? { ...o, status: status as OrderType['status'] } : o)));
-      return;
-    }
     try {
       await apiRequest<OrderType>(`/orders/${orderId}/status/`, {
         token,
@@ -115,11 +52,6 @@ export default function OrdersPage({ mode }: OrdersPageProps) {
             ? t('dashboard.orderHistoryDescription', { defaultValue: 'Track purchases and payment status.' })
             : t('dashboard.orderFulfillmentDescription', { defaultValue: 'Review orders, payment method, fulfillment status, and customer contact.' })}
         </p>
-        {isDemo && (
-          <p className="mt-3 rounded-md bg-accent/10 px-3 py-2 text-xs font-semibold text-accent">
-            {t('dashboard.demoNotice', { defaultValue: 'Demo mode: sample data shown, nothing is saved. Everything resets on refresh.' })}
-          </p>
-        )}
       </section>
 
       {error && <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}

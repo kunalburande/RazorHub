@@ -197,3 +197,120 @@ class AgenticChatView(APIView):
                 "error": str(e),
             }, status=500)
 
+
+class CompileBundleView(APIView):
+    """
+    POST /api/intelligence/compile-bundle/
+    Accepts: { query?: str, product_slug?: str, product_id?: int, budget_limit?: float }
+    Returns multi-tier compiled bundle with optimal budget-constrained selection and explainability.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from decimal import Decimal
+        from products.models import Product
+        from products.serializers import ProductListSerializer
+        from intelligence.services.bundle_compiler import BundleCompilerService
+
+        query = request.data.get("query", "")
+        product_slug = request.data.get("product_slug")
+        product_id = request.data.get("product_id")
+        budget_limit = request.data.get("budget_limit")
+
+        primary = None
+        if product_slug:
+            primary = Product.objects.filter(slug=product_slug, is_active=True).first()
+        elif product_id:
+            primary = Product.objects.filter(id=product_id, is_active=True).first()
+
+        if not primary and query:
+            parsed = BundleCompilerService.parse_intent_and_budget(query)
+            if not budget_limit and parsed.get("budget_limit"):
+                budget_limit = parsed["budget_limit"]
+
+            cat_slug = parsed.get("category_slug")
+            qs = Product.objects.filter(is_active=True)
+            if cat_slug:
+                qs = qs.filter(category__slug=cat_slug)
+            if budget_limit:
+                qs = qs.filter(price__lte=Decimal(str(budget_limit)))
+
+            primary = qs.order_by('-price', '-rating').first()
+            if not primary:
+                primary = Product.objects.filter(is_active=True).order_by('-price').first()
+
+        if not primary:
+            return Response({"error": "No matching primary product found for bundle compilation."}, status=404)
+
+        limit_dec = Decimal(str(budget_limit)) if budget_limit else None
+        bundle_data = BundleCompilerService.compile_bundle(primary, budget_limit=limit_dec)
+
+        def serialize_tier(t):
+            return {
+                "tier_name": t["tier_name"],
+                "tier_key": t["tier_key"],
+                "primary": ProductListSerializer(t["primary"]).data,
+                "accessories": ProductListSerializer(t["accessories"], many=True).data,
+                "raw_total": t["raw_total"],
+                "bundle_price": t["bundle_price"],
+                "discount_amount": t["discount_amount"],
+                "savings_headroom": t["savings_headroom"],
+                "is_within_budget": t["is_within_budget"],
+                "exceeded_by": t.get("exceeded_by", 0.0),
+                "coverage": t["coverage"],
+            }
+
+        return Response({
+            "recommended_tier": bundle_data["recommended_tier"],
+            "explanation": bundle_data["explanation"],
+            "budget_limit": bundle_data["budget_limit"],
+            "primary_product": ProductListSerializer(bundle_data["primary_product"]).data,
+            "chosen_bundle": serialize_tier(bundle_data["chosen_bundle"]),
+            "tiers": {
+                k: serialize_tier(v) for k, v in bundle_data["tiers"].items()
+            }
+        })
+
+
+class ReadinessScoreView(APIView):
+    """
+    GET /api/intelligence/readiness-score/
+    Computes and returns the 8-pillar AI Commerce Readiness Score (0-100)
+    and explainable diagnostics for the seller's store.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from intelligence.services.agent_compatibility import AgentBuyerCompatibilityService
+        from sellers.models import SellerProfile
+
+        store = None
+        if request.user.is_authenticated:
+            try:
+                seller_profile = SellerProfile.objects.filter(user=request.user).first()
+                if seller_profile and hasattr(seller_profile, 'store'):
+                    store = seller_profile.store
+            except Exception:
+                pass
+
+        readiness = AgentBuyerCompatibilityService.evaluate_store_readiness(store=store)
+        return Response(readiness)
+
+
+class CatalogManifestView(APIView):
+    """
+    GET /api/intelligence/catalog-manifest/
+    Returns batch agent-readable catalog manifest for autonomous AI buyers and crawlers.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from intelligence.services.agent_manifest import AgentManifestService
+        limit = int(request.query_params.get("limit", 50))
+        category_slug = request.query_params.get("category")
+        qs = Product.objects.filter(is_active=True).select_related('category', 'brand')
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+        manifest = AgentManifestService.build_catalog_manifest(qs[:limit], limit=limit)
+        return Response(manifest)
+

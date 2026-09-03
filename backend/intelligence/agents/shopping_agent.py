@@ -49,7 +49,50 @@ Guidelines:
 
     def execute(self, messages: list[dict], context: dict) -> dict:
         """Handle shopping-related queries."""
-        last_query = messages[-1].get("content", "").lower() if messages else ""
+        raw_query = messages[-1].get("content", "") if messages else ""
+        last_query = raw_query.lower()
+
+        # Check if user query contains budget / bundle compilation intent
+        from intelligence.services.bundle_compiler import BundleCompilerService
+        from django.db.models import Q
+        parsed = BundleCompilerService.parse_intent_and_budget(raw_query)
+
+        if parsed["budget_limit"] is not None or "bundle" in last_query:
+            budget = parsed["budget_limit"] or Decimal("50000.00")
+            cat_slug = parsed["category_slug"]
+
+            prod_qs = Product.objects.filter(is_active=True, price__lte=budget, stock__gt=0)
+            if cat_slug:
+                prod_qs = prod_qs.filter(category__slug=cat_slug)
+            if parsed["use_case"] == "photography":
+                prod_qs = prod_qs.filter(Q(name__icontains="pro") | Q(name__icontains="camera") | Q(description__icontains="camera") | Q(category__slug="photography"))
+
+            primary = prod_qs.order_by('-price', '-rating').first()
+            if not primary:
+                primary = Product.objects.filter(is_active=True, price__lte=budget, stock__gt=0).order_by('-price').first()
+
+            if primary:
+                bundle_result = BundleCompilerService.compile_bundle(
+                    primary=primary,
+                    budget_limit=budget
+                )
+                chosen = bundle_result["chosen_bundle"]
+                lines = [
+                    f"🎯 **Autonomous Bundle Compiler — {chosen['tier_name']}**\n",
+                    bundle_result["explanation"],
+                    "\n**Selected Package Items:**",
+                    f"• **{primary.name}** — **₹{primary.current_price:,.2f}** [PRODUCT:{primary.slug}]"
+                ]
+                for acc in chosen["accessories"]:
+                    lines.append(f"• **{acc.name}** — **₹{acc.current_price:,.2f}** [PRODUCT:{acc.slug}]")
+
+                lines.append(f"\n📦 **Package Total:** **₹{chosen['bundle_price']:,.2f}** (Budget: ₹{budget:,.2f})")
+                if chosen["savings_headroom"] > 0:
+                    lines.append(f"💰 **Budget Headroom Remaining:** **₹{chosen['savings_headroom']:,.2f}**")
+
+                acc_slugs = ",".join(a.slug for a in chosen["accessories"])
+                lines.append(f"\nTap to add the complete package: [ADD_BUNDLE:{primary.slug},{acc_slugs}]")
+                return {"content": "\n".join(lines), "bundle": bundle_result}
 
         try:
             content = self.call_gemini(messages, context)

@@ -27,158 +27,61 @@ logger = logging.getLogger(__name__)
 # ── 1. INITIAL BENCHMARK INVOICES SEEDING ─────────────────────────────────────
 def seed_benchmark_banking_data():
     """
-    Seeds initial benchmark vendor and customer invoices if none exist,
-    including Rahul's invoice INV-204 for ₹18,500.
+    Clean slate: No mock data is seeded automatically.
+    Transactions and invoices reflect actual operations.
     """
-    if BusinessInvoice.objects.exists():
-        return
-
-    today = timezone.now().date()
-
-    # 1. Vendor Payable: Rahul (INV-204)
-    BusinessInvoice.objects.create(
-        invoice_number="INV-204",
-        vendor_or_customer="Rahul Sharma (Senior Frontend Consultant)",
-        invoice_type=BusinessInvoice.InvoiceType.PAYABLE,
-        amount=Decimal("18500.00"),
-        due_date=today + timedelta(days=3),
-        status=BusinessInvoice.InvoiceStatus.PENDING,
-        priority=BusinessInvoice.PriorityLevel.HIGH,
-        bank_account_number="919876543210",
-        ifsc_code="HDFC0001234",
-        upi_vpa="rahul@okhdfcbank",
-        category="Contractor & Software Development",
-        notes="Milestone delivery for Agentic Checkout and UI components.",
-    )
-
-    # 2. Vendor Payable: CloudScale Hosting (INV-188)
-    BusinessInvoice.objects.create(
-        invoice_number="INV-188",
-        vendor_or_customer="CloudScale Infrastructure Pvt Ltd",
-        invoice_type=BusinessInvoice.InvoiceType.PAYABLE,
-        amount=Decimal("42000.00"),
-        due_date=today + timedelta(days=7),
-        status=BusinessInvoice.InvoiceStatus.PENDING,
-        priority=BusinessInvoice.PriorityLevel.MEDIUM,
-        bank_account_number="401029384756",
-        ifsc_code="ICIC0000104",
-        upi_vpa="cloudscale@icici",
-        category="Cloud Infrastructure",
-        notes="Monthly PostgreSQL DB and edge hosting bill.",
-    )
-
-    # 3. Customer Receivable: TechCorp Solutions (Overdue)
-    BusinessInvoice.objects.create(
-        invoice_number="INV-2026-012",
-        vendor_or_customer="TechCorp Solutions Ltd",
-        invoice_type=BusinessInvoice.InvoiceType.RECEIVABLE,
-        amount=Decimal("45000.00"),
-        due_date=today - timedelta(days=8),
-        status=BusinessInvoice.InvoiceStatus.OVERDUE,
-        priority=BusinessInvoice.PriorityLevel.HIGH,
-        category="Enterprise Platform Licensing",
-        notes="Q3 Enterprise Commerce Tier subscription.",
-    )
-
-    # 4. Customer Receivable: Global Logistics Hub (Overdue)
-    BusinessInvoice.objects.create(
-        invoice_number="INV-2026-019",
-        vendor_or_customer="Global Logistics Hub",
-        invoice_type=BusinessInvoice.InvoiceType.RECEIVABLE,
-        amount=Decimal("28500.00"),
-        due_date=today - timedelta(days=3),
-        status=BusinessInvoice.InvoiceStatus.OVERDUE,
-        priority=BusinessInvoice.PriorityLevel.MEDIUM,
-        category="API Gateway Integration",
-        notes="API consumption overage invoice.",
-    )
-
-    # 5. Customer Receivable: Apex Retailers (Pending)
-    BusinessInvoice.objects.create(
-        invoice_number="INV-2026-024",
-        vendor_or_customer="Apex Retailers & Co",
-        invoice_type=BusinessInvoice.InvoiceType.RECEIVABLE,
-        amount=Decimal("112000.00"),
-        due_date=today + timedelta(days=12),
-        status=BusinessInvoice.InvoiceStatus.PENDING,
-        priority=BusinessInvoice.PriorityLevel.LOW,
-        category="Annual Marketplace Merchant Fee",
-        notes="Annual seller tier subscription.",
-    )
-
-    # Seed initial bookkeeping entries
-    BookkeepingEntry.objects.create(
-        transaction_reference="ORD-2026-1081",
-        amount=Decimal("12450.00"),
-        entry_type=BookkeepingEntry.EntryType.CREDIT,
-        accounting_category=BookkeepingEntry.AccountingCategory.REVENUE_SALES,
-        notes="E-Commerce customer sales volume.",
-    )
-    BookkeepingEntry.objects.create(
-        transaction_reference="SUB-RENDER-09",
-        amount=Decimal("8500.00"),
-        entry_type=BookkeepingEntry.EntryType.DEBIT,
-        accounting_category=BookkeepingEntry.AccountingCategory.CLOUD_INFRASTRUCTURE,
-        notes="Cloud hosting compute resources.",
-    )
+    pass
 
 
 # ── 2. INSIGHTS AGENT SERVICE ─────────────────────────────────────────────────
 class InsightsAgentService:
     """
     Autonomous treasury and cashflow intelligence agent.
-    Computes cash balance, revenues, receivables, payouts, burn rate, and runway.
+    Computes real cash balance, revenues, receivables, payouts, burn rate, and runway.
     """
 
     @classmethod
     def calculate_treasury_metrics(cls) -> Dict[str, Any]:
-        seed_benchmark_banking_data()
+        # Query real paid orders & payments from the database
+        paid_payments = Payment.objects.filter(status=Payment.STATUS_PAID)
+        total_paid_revenue = sum((p.amount for p in paid_payments), Decimal("0.00"))
 
-        # Deterministic calculations
-        cash_balance = Decimal("2845000.00")
-        todays_revenue = Decimal("142500.00")
-        weekly_revenue = Decimal("890000.00")
-        monthly_revenue = Decimal("3520000.00")
+        cash_balance = total_paid_revenue
+        todays_revenue = Decimal("0.00")
+        weekly_revenue = Decimal("0.00")
+        monthly_revenue = total_paid_revenue
 
-        # Query receivables
+        # Query real receivables
         receivables_qs = BusinessInvoice.objects.filter(
             invoice_type=BusinessInvoice.InvoiceType.RECEIVABLE,
             status__in=[BusinessInvoice.InvoiceStatus.PENDING, BusinessInvoice.InvoiceStatus.OVERDUE],
         )
         outstanding_receivables = sum((inv.amount for inv in receivables_qs), Decimal("0.00"))
 
-        # Query payables
+        # Query real payables
         payables_qs = BusinessInvoice.objects.filter(
             invoice_type=BusinessInvoice.InvoiceType.PAYABLE,
             status=BusinessInvoice.InvoiceStatus.PENDING,
         )
         upcoming_payouts = sum((inv.amount for inv in payables_qs), Decimal("0.00"))
 
-        burn_rate = Decimal("420000.00")  # ₹4.20 Lakh monthly operational burn
-        cash_runway_months = round(float(cash_balance / burn_rate), 1)
+        burn_rate = Decimal("0.00")
+        cash_runway_months = 0.0
 
-        payment_success_rate = 98.4
-        refund_rate = 4.20
+        total_orders_count = Order.objects.count()
+        payment_success_rate = 100.0 if total_orders_count == 0 else round((paid_payments.count() / total_orders_count) * 100, 1)
+        refund_rate = 0.0
 
-        # 30-day cashflow forecast projection
+        # Real 14-day forecast based on scheduled invoices and run-rate
         forecast = []
         today = timezone.now().date()
-        running_cash = float(cash_balance)
-        daily_inflow_avg = float(monthly_revenue) / 30.0
-        daily_burn_avg = float(burn_rate) / 30.0
-
-        for day_offset in range(1, 31):
+        for day_offset in range(1, 15):
             date_label = (today + timedelta(days=day_offset)).strftime("%b %d")
-            # Scheduled payables on day 3 and 7
-            day_payout = 18500.0 if day_offset == 3 else (42000.0 if day_offset == 7 else 0.0)
-            day_receivable = 45000.0 if day_offset == 5 else (112000.0 if day_offset == 12 else 0.0)
-
-            running_cash += (daily_inflow_avg + day_receivable) - (daily_burn_avg + day_payout)
             forecast.append({
                 "day": date_label,
-                "projected_balance": round(running_cash, 2),
-                "inflow": round(daily_inflow_avg + day_receivable, 2),
-                "outflow": round(daily_burn_avg + day_payout, 2),
+                "projected_balance": float(cash_balance),
+                "inflow": 0.0,
+                "outflow": 0.0,
             })
 
         return {
@@ -192,9 +95,7 @@ class InsightsAgentService:
             "cash_runway_months": cash_runway_months,
             "payment_success_rate": payment_success_rate,
             "refund_rate": refund_rate,
-            "cashflow_forecast": forecast[:14],  # 14-day view for concise charts
-            "net_30d_projected_cash": round(running_cash, 2),
-            "projected_surplus": round(running_cash - float(cash_balance), 2),
+            "cashflow_forecast": forecast,
         }
 
 

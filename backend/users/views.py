@@ -43,15 +43,54 @@ class RegisterView(APIView):
         return Response(serializer.to_representation(user), status=201)
 
 
-@api_view(["GET"])
+@api_view(["GET", "PATCH", "PUT"])
 @permission_classes([permissions.IsAuthenticated])
 def me(request):
-    return Response(UserSerializer(request.user).data)
+    user = request.user
+    if request.method in ["PATCH", "PUT"]:
+        first_name = request.data.get("first_name")
+        last_name = request.data.get("last_name")
+        if "full_name" in request.data:
+            parts = str(request.data["full_name"]).strip().split(" ", 1)
+            first_name = parts[0]
+            last_name = parts[1] if len(parts) > 1 else ""
+
+        if first_name is not None:
+            user.first_name = first_name
+        if last_name is not None:
+            user.last_name = last_name
+        if "phone" in request.data:
+            user.phone = request.data["phone"]
+        if "address" in request.data:
+            user.address = request.data["address"]
+        user.save()
+
+        # If user has a seller profile, update business name and bio
+        if hasattr(user, "seller_profile"):
+            sp = user.seller_profile
+            if "business_name" in request.data and request.data["business_name"]:
+                sp.business_name = request.data["business_name"]
+            if "phone" in request.data and request.data["phone"]:
+                sp.phone = request.data["phone"]
+            sp.save()
+
+            if hasattr(sp, "store"):
+                store = sp.store
+                if "business_name" in request.data and request.data["business_name"]:
+                    store.name = request.data["business_name"]
+                if "bio" in request.data:
+                    store.description = request.data["bio"]
+                elif "store_description" in request.data:
+                    store.description = request.data["store_description"]
+                store.save()
+
+        return Response(UserSerializer(user).data)
+    return Response(UserSerializer(user).data)
 
 
-class IsAdminUserRole(permissions.BasePermission):
+class IsAdminOrSellerUserRole(permissions.BasePermission):
     def has_permission(self, request, view):
-        return bool(request.user and request.user.is_authenticated and request.user.effective_role == "admin")
+        return bool(request.user and request.user.is_authenticated and request.user.effective_role in ["admin", "seller"])
 
 
 from rest_framework.pagination import PageNumberPagination
@@ -64,10 +103,17 @@ class UserPagination(PageNumberPagination):
 
 
 class UserViewSet(viewsets.ModelViewSet):
-    queryset = User.objects.all().order_by("-date_joined")
     serializer_class = UserSerializer
     pagination_class = UserPagination
-    permission_classes = [IsAdminUserRole]
+    permission_classes = [IsAdminOrSellerUserRole]
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.effective_role == "admin":
+            return User.objects.all().order_by("-date_joined")
+        if user.effective_role == "seller":
+            return User.objects.filter(role=User.ROLE_CUSTOMER).order_by("-date_joined")
+        return User.objects.filter(id=user.id)
 
 
 class AddressViewSet(viewsets.ModelViewSet):

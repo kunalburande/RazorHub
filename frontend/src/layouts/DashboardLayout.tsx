@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Bell, Bot, ClipboardList, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
+import { BarChart3, Bell, Bot, Building2, ClipboardList, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTranslation } from '../i18n/LocaleContext';
@@ -13,7 +13,6 @@ export default function DashboardLayout() {
   const roleNav = {
     customer: [
       { to: '/dashboard', label: t('dashboard.navAccount', { defaultValue: 'Account' }), icon: LayoutDashboard },
-      { to: '/agents', label: 'Agent Studio', icon: Bot },
       { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
       { to: '/dashboard/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
       { to: '/dashboard/tickets', label: t('dashboard.navSupport', { defaultValue: 'Support' }), icon: Ticket },
@@ -21,10 +20,11 @@ export default function DashboardLayout() {
     seller: [
       { to: '/seller', label: t('dashboard.navDashboard', { defaultValue: 'Dashboard' }), icon: BarChart3 },
       { to: '/agents', label: 'Agent Studio', icon: Bot },
-      { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
-      { to: '/seller/products', label: t('dashboard.navProducts', { defaultValue: 'Products' }), icon: Package },
+      { to: '/banking', label: 'Banking', icon: Building2 },
+      { to: '/seller', label: t('dashboard.navProducts', { defaultValue: 'Products' }), icon: Package },
       { to: '/seller/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
-      { to: '/seller/customers', label: t('dashboard.navCustomers', { defaultValue: 'Customers' }), icon: Users },
+      { to: '/seller/users', label: t('dashboard.navCustomers', { defaultValue: 'Customers' }), icon: Users },
+      { to: '/seller/settings', label: t('nav.settings', { defaultValue: 'Settings' }), icon: Settings },
     ],
     admin: [
       { to: '/admin', label: t('dashboard.navOverview', { defaultValue: 'Overview' }), icon: LayoutDashboard },
@@ -60,7 +60,7 @@ export default function DashboardLayout() {
       {role === 'customer' ? (
         <Outlet />
       ) : (
-        <div className="mx-auto grid max-w-[1360px] w-full grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_1fr] lg:px-8">
+        <div className="mx-auto grid max-w-[1360px] w-full min-w-0 grid-cols-1 gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[240px_minmax(0,1fr)] lg:px-8">
           <aside className="rounded-lg border border-border bg-surface p-3 lg:sticky lg:top-20 lg:h-fit">
             <div className="mb-3 flex items-center gap-2 px-3 py-2 text-sm font-bold uppercase text-secondary">
               <Store className="h-4 w-4" />
@@ -88,7 +88,7 @@ export default function DashboardLayout() {
             </nav>
           </aside>
 
-          <main>
+          <main className="min-w-0 w-full overflow-hidden">
             <Outlet />
           </main>
         </div>

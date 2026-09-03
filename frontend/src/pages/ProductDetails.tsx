@@ -18,6 +18,9 @@ import {
   Package,
   Layers,
   Zap,
+  Bot,
+  Copy,
+  Sparkles,
 } from 'lucide-react';
 
 import { API, formatDate, formatPrice, price, productImage, normalizeImageUrl, PRODUCT_FALLBACK_IMAGE } from '../lib/products';
@@ -43,6 +46,7 @@ interface RecommendationsType {
   upsell?: ProductType[];
   cross_sell?: ProductType[];
   similar?: ProductType[];
+  opportunity_metrics?: Record<string | number, { reason?: string; opportunity_score?: number }>;
 }
 
 export default function ProductDetails() {
@@ -78,6 +82,32 @@ export default function ProductDetails() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
   const [activeImage, setActiveImage] = useState<string | null>(null);
+  const [showManifest, setShowManifest] = useState(false);
+  const [manifestData, setManifestData] = useState<any>(null);
+  const [manifestCopied, setManifestCopied] = useState(false);
+
+  const handleOpenManifest = async () => {
+    setShowManifest(true);
+    if (!manifestData && product) {
+      try {
+        const res = await API.get(`/items/${product.slug}/manifest/`);
+        setManifestData(res.data);
+      } catch (e) {
+        setManifestData({
+          product_id: `PROD_${product.id}`,
+          name: product.name,
+          category: product.category?.name || 'General',
+          price: { amount: price(product), currency: 'INR' },
+          availability: { status: (product.stock ?? 1) > 0 ? 'in_stock' : 'out_of_stock', quantity: product.stock ?? 10 },
+          attributes: { brand: product.brand?.name || 'Standard', rating: product.rating },
+          constraints: { max_quantity_per_order: 3 },
+          compatibility: recommendations?.cross_sell?.map(p => p.slug) || [],
+          shipping: { estimated_days: 2 },
+          returns: { window_days: 7 }
+        });
+      }
+    }
+  };
 
   // Initialize active image when product loads
   useEffect(() => {
@@ -438,21 +468,104 @@ export default function ProductDetails() {
                 </div>
               </div>
             </div>
+
+            {/* Agent-Readable Manifest Protocol Button */}
+            <div className="mt-4 pt-3.5 border-t border-border flex items-center justify-between">
+              <span className="text-[11px] font-semibold text-secondary flex items-center gap-1.5">
+                <Bot className="h-3.5 w-3.5 text-indigo-500" />
+                <span>AI Buyer Protocol</span>
+              </span>
+              <button
+                type="button"
+                onClick={handleOpenManifest}
+                className="inline-flex items-center gap-1 rounded-lg bg-indigo-500/10 border border-indigo-500/25 px-2.5 py-1 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/20 transition-all cursor-pointer"
+              >
+                View Manifest (JSON)
+              </button>
+            </div>
           </div>
         </aside>
       </div>
 
 
+      {/* AI VALUE-OPTIMIZED BUNDLE: Frequently Bought Together */}
+      {recommendations?.frequently_bought_together && recommendations.frequently_bought_together.items.length >= 2 && (
+        <section className="mt-8 rounded-2xl border border-emerald-500/20 bg-gradient-to-r from-emerald-500/5 via-surface to-surface p-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-white shadow-xs">
+              <Sparkles className="h-3.5 w-3.5" />
+            </span>
+            <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+              Frequently Bought Together — Save {recommendations.frequently_bought_together.savings_pct}%
+            </span>
+          </div>
+
+          <div className="mt-4 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex flex-wrap items-center gap-4">
+              {recommendations.frequently_bought_together.items.map((item, idx) => (
+                <div key={item.id} className="flex items-center gap-4">
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-surface p-3 shadow-xs">
+                    <img
+                      src={item.image_url || FALLBACK_IMAGE}
+                      alt={item.name}
+                      className="h-14 w-14 rounded-lg object-cover"
+                    />
+                    <div>
+                      <p className="line-clamp-1 text-xs font-bold text-primary max-w-[200px]">{item.name}</p>
+                      <p className="text-xs font-semibold text-accent">{formatPrice(price(item))}</p>
+                    </div>
+                  </div>
+                  {idx < recommendations.frequently_bought_together!.items.length - 1 && (
+                    <span className="text-sm font-bold text-secondary">+</span>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div>
+                <p className="text-xs text-secondary">
+                  Bundle Total:{' '}
+                  <span className="line-through text-secondary/70">
+                    {formatPrice(recommendations.frequently_bought_together.raw_total)}
+                  </span>
+                </p>
+                <p className="text-base font-bold text-emerald-600 dark:text-emerald-400">
+                  {formatPrice(recommendations.frequently_bought_together.bundle_price)}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => {
+                  recommendations.frequently_bought_together?.items.forEach((it) => addToCart(it, 1));
+                  navigate('/cart');
+                }}
+                className="inline-flex shrink-0 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-5 py-3 text-xs font-bold text-white shadow-md transition-all hover:bg-emerald-700 active:scale-98"
+              >
+                <ShoppingBag className="h-4 w-4" /> Add Both to Cart
+              </button>
+            </div>
+          </div>
+        </section>
+      )}
+
       {/* REVENUE GROWTH STRATEGY 2: Smart Upsell / Upgrade to Premium */}
       {topUpsell && (
         <section className="mt-8 rounded-2xl border border-indigo-500/20 bg-gradient-to-r from-indigo-500/5 via-surface to-surface p-6 shadow-sm">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-600 text-white shadow-xs">
               <TrendingUp className="h-3.5 w-3.5" />
             </span>
             <span className="text-xs font-bold uppercase tracking-wider text-indigo-600 dark:text-indigo-400">
-              Upgrade & Save Strategy
+              AI Value Upgrade
             </span>
+            {recommendations?.opportunity_metrics?.[topUpsell.id]?.uplift !== undefined && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-bold text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <Sparkles className="h-3 w-3" />
+                Causal Lift: +{Math.round((recommendations.opportunity_metrics[topUpsell.id].uplift || 0) * 100)}% ({recommendations.opportunity_metrics[topUpsell.id].quadrant_label || 'Persuadable'})
+              </span>
+            )}
           </div>
 
           <div className="mt-3 flex flex-col md:flex-row md:items-center justify-between gap-6">
@@ -461,8 +574,12 @@ export default function ProductDetails() {
                 Looking for higher performance? Consider the upgraded {topUpsell.name}
               </h3>
               <p className="text-xs text-secondary">
-                Get enhanced durability, higher rated reviews ({Number(topUpsell.rating || 4.8).toFixed(1)} ★), and premium manufacturer warranty for just{' '}
-                <span className="font-bold text-primary">{formatPrice(price(topUpsell) - price(product))}</span> more.
+                {recommendations?.opportunity_metrics?.[topUpsell.id]?.reason || (
+                  <>
+                    Get enhanced durability, higher rated reviews ({Number(topUpsell.rating || 4.8).toFixed(1)} ★), and premium manufacturer warranty for just{' '}
+                    <span className="font-bold text-primary">{formatPrice(price(topUpsell) - price(product))}</span> more.
+                  </>
+                )}
               </p>
             </div>
 
@@ -681,6 +798,61 @@ export default function ProductDetails() {
           </button>
         </div>
       </div>
+
+      {/* Agent-Readable Product Manifest Modal */}
+      {showManifest && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="relative w-full max-w-2xl rounded-3xl border border-border bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border">
+              <div className="flex items-center gap-2.5">
+                <span className="flex h-9 w-9 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-xs">
+                  <Bot className="h-5 w-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-black text-primary">Agent-Readable Product Manifest</h3>
+                  <p className="text-xs text-secondary">Structured machine facts schema for autonomous AI buyers</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManifest(false)}
+                className="p-2 rounded-xl text-secondary hover:text-primary hover:bg-muted/50 transition-colors"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="relative">
+              <pre className="max-h-96 overflow-y-auto rounded-2xl bg-zinc-950 p-4 text-xs font-mono text-emerald-400 border border-zinc-800 shadow-inner">
+                {JSON.stringify(manifestData, null, 2)}
+              </pre>
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(JSON.stringify(manifestData, null, 2));
+                  setManifestCopied(true);
+                  setTimeout(() => setManifestCopied(false), 2000);
+                }}
+                className="absolute top-3 right-3 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-white text-xs font-bold transition-all shadow-md cursor-pointer"
+              >
+                {manifestCopied ? <Check className="h-3.5 w-3.5 text-emerald-400" /> : <Copy className="h-3.5 w-3.5" />}
+                {manifestCopied ? "Copied" : "Copy JSON"}
+              </button>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row justify-between items-center gap-2 text-[11px] text-secondary">
+              <span className="text-xs font-medium">Standard: AgenticCommerce-Manifest/2026 • Facts-Only Schema</span>
+              <button
+                type="button"
+                onClick={() => setShowManifest(false)}
+                className="px-5 py-2 rounded-xl bg-accent hover:opacity-90 active:scale-98 text-white font-bold text-xs shadow-md transition-all cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

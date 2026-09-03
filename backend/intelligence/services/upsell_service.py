@@ -365,14 +365,24 @@ class UpsellService:
                 except Product.DoesNotExist:
                     pass
 
-        # 2. Upsell from product page
+        # 2. Profit-optimized recommendations from product page
         if product:
-            upsells = cls.get_upsell_candidates(product, limit=limit)
-            for p in upsells:
+            from intelligence.services.profit_optimizer import ProfitOptimizerService
+            ranked_opts = ProfitOptimizerService.get_ranked_recommendations(
+                base_product=product,
+                user=user,
+                timing_context="product_details",
+                limit=limit
+            )
+            for opt in ranked_opts:
+                p = opt["product"]
                 recommendations.append({
-                    "type": "upsell",
-                    "signal": "premium_variant",
-                    "reason": f"Because you're looking at {product.name}, you might prefer this premium option",
+                    "type": "upsell" if opt["is_upgrade"] else "cross_sell",
+                    "signal": "profit_optimized_opportunity",
+                    "reason": opt["reason"],
+                    "opportunity_score": opt["opportunity_score"],
+                    "expected_incremental_margin": opt["expected_incremental_margin"],
+                    "contribution_margin": opt["contribution_margin"],
                     "product": {
                         "id": p.id,
                         "name": p.name,

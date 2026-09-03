@@ -7,13 +7,24 @@ from .email_utils import send_otp_email, send_welcome_email
 from django.conf import settings
 
 
+class SellerProfileSummarySerializer(serializers.ModelSerializer):
+    store_name = serializers.CharField(source="store.name", read_only=True, default="")
+    store_description = serializers.CharField(source="store.description", read_only=True, default="")
+    logo_url = serializers.CharField(source="store.logo_url", read_only=True, default="")
+
+    class Meta:
+        model = SellerProfile
+        fields = ["id", "business_name", "store_name", "store_description", "phone", "tax_id", "status", "logo_url"]
+
+
 class UserSerializer(serializers.ModelSerializer):
     effective_role = serializers.CharField(read_only=True)
+    seller_profile = SellerProfileSummarySerializer(read_only=True)
 
     class Meta:
         model = User
-        fields = ["id", "username", "email", "first_name", "last_name", "phone", "address", "role", "effective_role", "is_active", "date_joined"]
-        read_only_fields = ["id", "effective_role", "is_active", "date_joined"]
+        fields = ["id", "username", "email", "first_name", "last_name", "phone", "address", "role", "effective_role", "is_active", "date_joined", "seller_profile"]
+        read_only_fields = ["id", "effective_role", "is_active", "date_joined", "seller_profile"]
 
 
 class RegisterSerializer(serializers.Serializer):

@@ -1,5 +1,5 @@
 import { useTranslation } from '../i18n/LocaleContext';
-import { Mail, MapPin } from 'lucide-react';
+import { Mail, MapPin, BookOpen, HelpCircle, Shield, FileText, Bot, Building2, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import BrandLogo from './BrandLogo';
@@ -13,78 +13,166 @@ export default function Footer() {
   const secondaryAccountLabel = user ? t('footer.orders', { defaultValue: 'Orders' }) : t('footer.register', { defaultValue: 'Register' });
 
   return (
-    <footer className="mt-12 border-t border-border bg-surface">
-      <div className="mx-auto max-w-[1360px] w-full px-4 py-10 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
-          <div>
-            <Link to="/" className="mb-4 inline-block group">
+    <footer className="mt-16 border-t border-border bg-surface text-primary transition-colors">
+      <div className="mx-auto max-w-[1360px] w-full px-4 py-12 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-5">
+          
+          {/* Col 1: Brand & Bio */}
+          <div className="space-y-4 sm:col-span-2 lg:col-span-1">
+            <Link to="/" className="inline-block group">
               <BrandLogo size="lg" />
             </Link>
-            <p className="text-sm leading-6 text-secondary">{t('footer.description', { defaultValue: 'Products, deals, delivery, checkout.' })}</p>
+            <p className="text-xs sm:text-sm leading-relaxed text-secondary">
+              Next-generation agentic commerce, autonomous corporate treasury, and verified storefront catalog.
+            </p>
+            <div className="pt-2">
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                Live Cloud Sync • NeonDB
+              </span>
+            </div>
           </div>
 
+          {/* Col 2: Storefront & Shop */}
           <div>
-            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">{t('footer.shopTitle', { defaultValue: 'Shop' })}</h3>
-            <ul className="space-y-2 text-sm text-secondary">
-              <li><Link to="/products" className="hover:text-primary">{t('footer.allProducts', { defaultValue: 'All products' })}</Link></li>
-              <li><Link to="/products?category=mobiles" className="hover:text-primary">{t('footer.mobiles', { defaultValue: 'Mobiles' })}</Link></li>
-              <li><Link to="/products?category=fashion" className="hover:text-primary">{t('footer.fashion', { defaultValue: 'Fashion' })}</Link></li>
-              <li><Link to="/products?category=groceries" className="hover:text-primary">{t('footer.groceries', { defaultValue: 'Groceries' })}</Link></li>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
+              {t('footer.shopTitle', { defaultValue: 'Shop' })}
+            </h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-secondary">
+              <li><Link to="/products" className="hover:text-primary transition-colors">{t('footer.allProducts', { defaultValue: 'All Products' })}</Link></li>
+              <li><Link to="/products?category=mobiles" className="hover:text-primary transition-colors">{t('footer.mobiles', { defaultValue: 'Mobiles & Tech' })}</Link></li>
+              <li><Link to="/products?category=fashion" className="hover:text-primary transition-colors">{t('footer.fashion', { defaultValue: 'Fashion & Apparel' })}</Link></li>
+              <li><Link to="/products?category=groceries" className="hover:text-primary transition-colors">{t('footer.groceries', { defaultValue: 'Groceries' })}</Link></li>
+              <li><Link to="/products?sort=discount" className="hover:text-accent font-semibold transition-colors">🔥 Flash Deals</Link></li>
             </ul>
           </div>
 
+          {/* Col 3: Platform & AI */}
           <div>
-            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">{t('footer.ordersTitle', { defaultValue: 'Orders' })}</h3>
-            <ul className="space-y-2 text-sm text-secondary">
-              <li><Link to="/cart" className="hover:text-primary">{t('footer.cart', { defaultValue: 'Cart' })}</Link></li>
-              <li><Link to={accountLink} className="hover:text-primary">{accountLabel}</Link></li>
-              <li><Link to={secondaryAccountLink} className="hover:text-primary">{secondaryAccountLabel}</Link></li>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
+              Platform & AI
+            </h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-secondary">
+              <li>
+                <Link to="/banking" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                  <Building2 className="h-3.5 w-3.5 text-indigo-500" />
+                  <span>Business Banking</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/agents" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                  <Bot className="h-3.5 w-3.5 text-indigo-500" />
+                  <span>Agent Studio</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/ai" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-amber-500" />
+                  <span>AI Shopping</span>
+                </Link>
+              </li>
+              <li><Link to="/seller" className="hover:text-primary transition-colors">Seller Central</Link></li>
+              <li><Link to="/cart" className="hover:text-primary transition-colors">{t('footer.cart', { defaultValue: 'My Cart' })}</Link></li>
+              <li><Link to={accountLink} className="hover:text-primary transition-colors">{accountLabel}</Link></li>
             </ul>
           </div>
 
+          {/* Col 4: Documentation & Resources */}
           <div>
-            <h3 className="mb-3 text-sm font-bold uppercase tracking-wide">{t('footer.contactTitle', { defaultValue: 'Contact' })}</h3>
-            <ul className="space-y-3 text-sm text-secondary">
-              <li className="flex items-center gap-2"><MapPin className="h-4 w-4 text-accent" /> {t('footer.location', { defaultValue: 'Bengaluru, India' })}</li>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
+              Documentation
+            </h3>
+            <ul className="space-y-2 text-xs sm:text-sm text-secondary">
+              <li>
+                <Link to="/docs" className="hover:text-accent font-semibold transition-colors flex items-center gap-1.5">
+                  <BookOpen className="h-3.5 w-3.5 text-accent" />
+                  <span>Documentation</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/api-reference" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 text-secondary" />
+                  <span>API Reference</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/help-center" className="hover:text-accent font-semibold transition-colors flex items-center gap-1.5">
+                  <HelpCircle className="h-3.5 w-3.5 text-accent" />
+                  <span>Help Center</span>
+                </Link>
+              </li>
+              <li>
+                <Link to="/privacy" className="hover:text-primary transition-colors flex items-center gap-1.5">
+                  <Shield className="h-3.5 w-3.5 text-secondary" />
+                  <span>{t('footer.privacyPolicy', { defaultValue: 'Privacy Policy' })}</span>
+                </Link>
+              </li>
+              <li><Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+              <li><Link to="/cookies" className="hover:text-primary transition-colors">Cookie Policy</Link></li>
+            </ul>
+          </div>
+
+          {/* Col 5: Support & Contact */}
+          <div>
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-primary">
+              {t('footer.contactTitle', { defaultValue: 'Contact & Support' })}
+            </h3>
+            <ul className="space-y-2.5 text-xs sm:text-sm text-secondary">
+              <li className="flex items-start gap-2">
+                <MapPin className="h-4 w-4 text-accent shrink-0 mt-0.5" />
+                <span>Bengaluru, Karnataka, India</span>
+              </li>
               <li className="flex items-center gap-2">
-                <svg
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                  className="h-4 w-4 shrink-0 text-accent"
-                  fill="currentColor"
-                >
-                  <path d="M12 2C6.48 2 2 6.58 2 12.26c0 4.54 2.87 8.39 6.84 9.76.5.09.68-.22.68-.48 0-.24-.01-.87-.01-1.71-2.78.62-3.37-1.36-3.37-1.36-.45-1.17-1.11-1.48-1.11-1.48-.91-.64.07-.63.07-.63 1 .07 1.53 1.05 1.53 1.05.89 1.56 2.34 1.11 2.91.85.09-.66.35-1.11.64-1.37-2.22-.26-4.56-1.13-4.56-5.03 0-1.11.38-2.02 1-2.73-.1-.26-.44-1.31.1-2.72 0 0 .84-.27 2.75 1.04A9.2 9.2 0 0 1 12 6.84c.85 0 1.71.12 2.51.35 1.91-1.31 2.75-1.04 2.75-1.04.54 1.41.2 2.46.1 2.72.62.71 1 1.62 1 2.73 0 3.91-2.35 4.77-4.58 5.02.36.32.69.94.69 1.9 0 1.37-.01 2.48-.01 2.82 0 .26.18.58.69.48A10.27 10.27 0 0 0 22 12.26C22 6.58 17.52 2 12 2Z" />
-                </svg>
-                <a
-                  href="https://github.com/kunalburande/"
-                  target="_blank"
-                  rel="noreferrer"
-                  className="hover:text-primary"
-                >
-                  {t('footer.github', { defaultValue: 'github.com/kunalburande' })}
+                <Mail className="h-4 w-4 text-accent shrink-0" />
+                <a href="mailto:support@razorhub.in" className="hover:text-primary transition-colors">
+                  support@razorhub.in
                 </a>
               </li>
               <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-accent" />
-                <a href="mailto:krburande143@gmail.com" className="hover:text-primary">
-                  krburande143@gmail.com
-                </a>
-              </li>
-              <li className="flex items-center gap-2">
-                <Mail className="h-4 w-4 text-accent" />
-                <a href="mailto:razorhubofficial@gmail.com" className="hover:text-primary">
+                <Mail className="h-4 w-4 text-accent shrink-0" />
+                <a href="mailto:razorhubofficial@gmail.com" className="hover:text-primary transition-colors truncate">
                   razorhubofficial@gmail.com
                 </a>
               </li>
+              <li className="pt-1">
+                <Link
+                  to="/help-center"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-accent hover:underline"
+                >
+                  <HelpCircle className="h-3.5 w-3.5" />
+                  <span>Visit 24/7 Help Center →</span>
+                </Link>
+              </li>
+              {user && (
+                <li>
+                  <Link
+                    to="/dashboard/tickets"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-secondary hover:text-primary"
+                  >
+                    <span>View Support Tickets →</span>
+                  </Link>
+                </li>
+              )}
             </ul>
           </div>
+
         </div>
 
-        <div className="mt-10 flex flex-col sm:flex-row justify-between border-t border-border pt-6 text-sm text-secondary">
-          <span>&copy; {new Date().getFullYear()} RazorHub.</span>
-          <Link to="/privacy" className="mt-2 sm:mt-0 hover:text-primary">{t('footer.privacyPolicy', { defaultValue: 'Privacy Policy' })}</Link>
+        {/* Bottom Bar */}
+        <div className="mt-12 flex flex-col sm:flex-row items-center justify-between border-t border-border pt-6 text-xs text-secondary gap-4">
+          <span>&copy; {new Date().getFullYear()} RazorHub Commerce Technologies Inc. All rights reserved.</span>
+          <div className="flex flex-wrap items-center gap-4">
+            <Link to="/privacy" className="hover:text-primary transition-colors">{t('footer.privacyPolicy', { defaultValue: 'Privacy Policy' })}</Link>
+            <span>•</span>
+            <Link to="/terms" className="hover:text-primary transition-colors">Terms of Service</Link>
+            <span>•</span>
+            <Link to="/docs" className="hover:text-primary transition-colors">Docs</Link>
+            <span>•</span>
+            <Link to="/help-center" className="hover:text-primary transition-colors">Help Center</Link>
+          </div>
         </div>
       </div>
     </footer>
   );
 }
+

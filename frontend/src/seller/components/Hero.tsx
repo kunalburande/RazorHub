@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { Bot, ChevronLeft, ChevronRight } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { useTranslation } from "../i18n";
 import Button from "./ui/Button";
@@ -152,6 +153,14 @@ const Hero = ({ onAddProduct }: Props) => {
               >
                 {activeSlide.ctaPrimaryText}
               </Button>
+
+              <Link
+                to="/agents"
+                className="inline-flex w-full cursor-pointer items-center justify-center gap-x-2 rounded-xl border border-indigo-400/40 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 px-4 py-2.5 text-center text-xs font-bold text-white shadow-lg shadow-indigo-600/30 transition-all hover:scale-105 active:scale-95 min-[360px]:w-auto min-[360px]:px-5 min-[360px]:py-3 min-[360px]:text-sm"
+              >
+                <Bot className="h-4 w-4 text-cyan-300 animate-pulse" />
+                <span>Agent Studio →</span>
+              </Link>
 
               <a
                 href={activeSlide.ctaSecondaryHref}

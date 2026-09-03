@@ -66,7 +66,6 @@ export default function UsersTable({
 
   // Filter dropdown state
   const [selectedRole, setSelectedRole] = useState<string>("all");
-  const [selectedPlan, setSelectedPlan] = useState<string>("all");
   const [selectedStatus, setSelectedStatus] = useState<string>("all");
   const [isColumnMenuOpen, setIsColumnMenuOpen] = useState(false);
   const [activeActionMenuId, setActiveActionMenuId] = useState<string | null>(
@@ -89,7 +88,6 @@ export default function UsersTable({
   const filteredData = useMemo(() => {
     return users.filter((u) => {
       if (selectedRole !== "all" && u.role !== selectedRole) return false;
-      if (selectedPlan !== "all" && u.plan !== selectedPlan) return false;
       if (selectedStatus !== "all" && u.status !== selectedStatus) return false;
       if (globalFilter.trim()) {
         const query = globalFilter.toLowerCase();
@@ -100,7 +98,7 @@ export default function UsersTable({
       }
       return true;
     });
-  }, [users, selectedRole, selectedPlan, selectedStatus, globalFilter]);
+  }, [users, selectedRole, selectedStatus, globalFilter]);
 
   /* ------- TABLE COLUMNS DEFINITION ------- */
   const columns = useMemo<ColumnDef<User>[]>(
@@ -225,56 +223,6 @@ export default function UsersTable({
               className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${roleStyles[role]}`}
             >
               {roleLabel}
-            </span>
-          );
-        },
-      },
-
-      // Plan Column
-      {
-        accessorKey: "plan",
-        header: ({ column }) => (
-          <button
-            onClick={() => column.toggleSorting(column.getIsSorted() === "asc")}
-            className="flex items-center gap-1 text-xs font-medium text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
-          >
-            {t("users.table.planCol", "Plan")}
-            <ArrowUpDown className="h-3 w-3 opacity-50" />
-          </button>
-        ),
-        cell: ({ row }) => {
-          const plan: Plan = row.getValue("plan");
-          const planBadge: Record<Plan, { icon?: string; badgeClass: string }> =
-            {
-              Enterprise: {
-                badgeClass:
-                  "bg-violet-500/10 text-violet-600 dark:text-violet-400 border border-violet-500/20 font-semibold",
-              },
-              Pro: {
-                badgeClass:
-                  "bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20",
-              },
-              Free: {
-                badgeClass:
-                  "bg-zinc-100 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400",
-              },
-            };
-
-          const planLabel =
-            plan === "Enterprise"
-              ? t("common.enterprise", "Enterprise")
-              : plan === "Pro"
-                ? t("common.pro", "Pro")
-                : t("common.free", "Free");
-
-          return (
-            <span
-              className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium ${planBadge[plan].badgeClass}`}
-            >
-              {plan === "Enterprise" && (
-                <Sparkles className="h-3 w-3 text-amber-500" />
-              )}
-              {planLabel}
             </span>
           );
         },
@@ -527,23 +475,6 @@ export default function UsersTable({
               { value: "Editor", label: t("common.editor", "Editor") },
               { value: "Moderator", label: t("common.moderator", "Moderator") },
               { value: "User", label: t("common.user", "User") },
-            ]}
-            className="w-36 shrink-0"
-          />
-
-          {/* Plan Filter */}
-          <Select
-            size="sm"
-            value={selectedPlan}
-            onChange={setSelectedPlan}
-            options={[
-              { value: "all", label: t("users.table.allPlans", "All Plans") },
-              {
-                value: "Enterprise",
-                label: t("common.enterprise", "Enterprise"),
-              },
-              { value: "Pro", label: t("common.pro", "Pro") },
-              { value: "Free", label: t("common.free", "Free") },
             ]}
             className="w-36 shrink-0"
           />

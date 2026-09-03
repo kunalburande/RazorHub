@@ -2,9 +2,12 @@ import { useEffect, useRef, useState } from "react";
 
 import {
   BarChart2,
+  Bot,
+  Building2,
   Moon,
   Package,
   Settings,
+  Sparkles,
   Sun,
   Users,
 } from "lucide-react";
@@ -28,9 +31,11 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
 
-  const isUsersPage = location.pathname === "/users";
-  const isSettingsPage = location.pathname === "/settings";
-  const isProductsPage = location.pathname === "/";
+  const isUsersPage = location.pathname.includes("/users");
+  const isSettingsPage = location.pathname.includes("/settings");
+  const isAgentsPage = location.pathname.includes("/agents");
+  const isBankingPage = location.pathname.includes("/banking");
+  const isProductsPage = location.pathname === "/seller" || location.pathname === "/";
 
   // Close mobile menu on Escape key press
   useEffect(() => {
@@ -71,18 +76,16 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
       <div className="mx-auto max-w-7xl flex items-center justify-between px-3 py-2.5 sm:py-3 md:px-4 lg:px-6">
         {/* 1. Logo & Mobile Toggle */}
         <div className="flex items-center gap-x-2 sm:gap-x-3">
-         
-
           <Link to="/" className="group flex items-center gap-x-2 sm:gap-x-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-linear-to-tr from-zinc-900 to-zinc-700 text-white shadow-md transition-transform group-hover:scale-105 sm:h-9 sm:w-9 dark:from-zinc-100 dark:to-zinc-300 dark:text-zinc-900">
+            <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-tr from-zinc-900 to-zinc-700 text-white shadow-md transition-transform group-hover:scale-105 sm:h-9 sm:w-9 dark:from-zinc-100 dark:to-zinc-300 dark:text-zinc-900">
               <Package className="h-4 w-4 sm:h-5 sm:w-5" />
             </div>
             <div>
               <span className="text-base font-bold tracking-tight text-zinc-900 sm:text-lg dark:text-white">
-                {t("nav.brandName", "Dok")}<span className={themePreset.text}>{t("nav.brandHighlight", "kany")}</span>
+                Razor<span className={themePreset.text}>Hub</span>
               </span>
-              <span className="ms-2 hidden rounded-full border border-zinc-200 bg-zinc-100 px-2 py-0.5 text-[10px] font-semibold text-zinc-600 lg:inline-block dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
-                {t("common.version", "v2.4")}
+              <span className="ms-2 hidden rounded-full border border-indigo-500/30 bg-indigo-500/10 px-2 py-0.5 text-[10px] font-bold text-indigo-600 dark:text-indigo-400 lg:inline-block">
+                Seller Suite
               </span>
             </div>
           </Link>
@@ -91,7 +94,7 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
         {/* 2. Desktop & Tablet Navigation */}
         <nav className="hidden items-center gap-x-0.5 rounded-xl border border-zinc-200/60 bg-zinc-100/80 p-1 text-xs font-medium md:flex lg:gap-x-1 dark:border-zinc-800 dark:bg-zinc-800/60">
           <Link
-            to="/"
+            to="/seller"
             title={t("nav.productsAnalytics", "Products & Analytics")}
             className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg p-2 transition-all xl:gap-2 xl:px-3.5 xl:py-1.5 ${
               isProductsPage
@@ -105,8 +108,39 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
             </span>
           </Link>
 
+          {/* Autonomous Agent Studio */}
           <Link
-            to="/users"
+            to="/agents"
+            title="Autonomous Agent Studio"
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg p-2 transition-all xl:gap-2 xl:px-3.5 xl:py-1.5 ${
+              isAgentsPage
+                ? "bg-indigo-600 font-bold text-white shadow-xs"
+                : "text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 hover:bg-indigo-500/10 font-bold"
+            }`}
+          >
+            <Bot className="h-4 w-4 shrink-0 xl:h-3.5 xl:w-3.5 text-indigo-500 dark:text-indigo-400" />
+            <span className="hidden lg:inline">Agent Studio</span>
+            <span className="ms-1 shrink-0 rounded-full bg-indigo-500/15 border border-indigo-500/30 px-1.5 text-[9px] font-black uppercase text-indigo-600 dark:text-indigo-400 hidden sm:inline-block">
+              AI
+            </span>
+          </Link>
+
+          {/* Business Banking */}
+          <Link
+            to="/banking"
+            title="Agentic Business Banking"
+            className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg p-2 transition-all xl:gap-2 xl:px-3.5 xl:py-1.5 ${
+              isBankingPage
+                ? "bg-white font-semibold text-zinc-900 shadow-xs dark:bg-zinc-900 dark:text-zinc-100"
+                : "text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+            }`}
+          >
+            <Building2 className="h-4 w-4 shrink-0 xl:h-3.5 xl:w-3.5" />
+            <span className="hidden lg:inline">Banking</span>
+          </Link>
+
+          <Link
+            to="/seller/users"
             title={t("nav.usersManagement", "Users Management")}
             className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg p-2 transition-all xl:gap-2 xl:px-3.5 xl:py-1.5 ${
               isUsersPage
@@ -118,15 +152,10 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
             <span className="hidden lg:inline">
               {t("nav.usersManagement", "Users Management")}
             </span>
-            <span
-              className={`ms-1 shrink-0 rounded-full ${themePreset.badgeBg} ${themePreset.badgeText} hidden px-1.5 text-[10px] font-bold sm:inline-block`}
-            >
-              100
-            </span>
           </Link>
 
           <Link
-            to="/settings"
+            to="/seller/settings"
             title={t("nav.settings", "Settings")}
             className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg p-2 transition-all xl:gap-2 xl:px-3.5 xl:py-1.5 ${
               isSettingsPage
@@ -178,7 +207,7 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
         >
           <nav className="flex flex-col gap-1.5 text-sm font-medium">
             <Link
-              to="/"
+              to="/seller"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors ${
                 isProductsPage
@@ -193,7 +222,36 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
             </Link>
 
             <Link
-              to="/users"
+              to="/agents"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center justify-between rounded-xl px-3 py-2.5 font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <Bot className="h-4.5 w-4.5 text-indigo-500" />
+                <span>Agent Studio</span>
+              </div>
+              <span className="rounded-full bg-indigo-500/15 border border-indigo-500/30 px-2 py-0.5 text-xs font-black uppercase text-indigo-600 dark:text-indigo-400">
+                AI
+              </span>
+            </Link>
+
+            <Link
+              to="/banking"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors ${
+                isBankingPage
+                  ? `${themePreset.badgeBg} font-semibold ${themePreset.text}`
+                  : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+              }`}
+            >
+              <div className="flex items-center gap-3">
+                <Building2 className="h-4.5 w-4.5" />
+                <span>Business Banking</span>
+              </div>
+            </Link>
+
+            <Link
+              to="/seller/users"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors ${
                 isUsersPage
@@ -205,15 +263,10 @@ const Navbar = ({ darkMode, toggleDarkMode }: NavbarProps) => {
                 <Users className="h-4.5 w-4.5" />
                 <span>{t("nav.usersManagement", "Users Management")}</span>
               </div>
-              <span
-                className={`rounded-full ${themePreset.badgeBg} px-2 py-0.5 text-xs font-bold ${themePreset.badgeText}`}
-              >
-                100
-              </span>
             </Link>
 
             <Link
-              to="/settings"
+              to="/seller/settings"
               onClick={() => setMobileMenuOpen(false)}
               className={`flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors ${
                 isSettingsPage

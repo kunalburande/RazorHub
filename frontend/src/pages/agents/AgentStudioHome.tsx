@@ -164,7 +164,7 @@ export default function AgentStudioHome() {
   };
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="mx-auto max-w-[1360px] w-full px-4 sm:px-6 lg:px-8 py-6 space-y-8 pb-16 min-w-0">
       
       {/* Hero Header */}
       <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-gray-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-10 shadow-2xl border border-indigo-500/20">
