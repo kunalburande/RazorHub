@@ -47,6 +47,8 @@ import {
   Users,
   Zap,
 } from 'lucide-react';
+import HumanApprovalModal from '../components/HumanApprovalModal';
+
 
 interface CRMOverview {
   users: number;
@@ -100,6 +102,8 @@ export default function AdminDashboard() {
   const [activities, setActivities] = useState<ActivityLogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; title: string; message: string } | null>(null);
+  const [approvalModalOpen, setApprovalModalOpen] = useState(false);
+  const [pendingApprovalsCount, setPendingApprovalsCount] = useState(0);
 
   // Settings State
   const [settingsTab, setSettingsTab] = useState<'profile' | 'platform' | 'security' | 'export'>('profile');
@@ -139,21 +143,25 @@ export default function AdminDashboard() {
     setTimeout(() => setToast(null), 4000);
   }
 
-  // Fetch live metrics from NeonDB
+  // Fetch live metrics from NeonDB & Agent Runtime
   function loadDashboardData() {
     setLoading(true);
     Promise.all([
       apiRequest<CRMOverview>('/crm/overview/', { token }).catch(() => null),
       apiRequest<OrderSummary>('/orders/summary/', { token }).catch(() => null),
       apiRequest<any>('/crm/activity/', { token }).catch(() => []),
+      apiRequest<any>('/agent-runtime/approvals/?status=PENDING', { token }).catch(() => []),
     ])
-      .then(([overviewData, orderData, activityData]) => {
+      .then(([overviewData, orderData, activityData, approvalsData]) => {
         if (overviewData) setOverview(overviewData);
         if (orderData) setOrderSummary(orderData);
         setActivities(unwrapList<ActivityLogItem>(activityData));
+        const approvalsList = Array.isArray(approvalsData) ? approvalsData : approvalsData?.results || [];
+        setPendingApprovalsCount(approvalsList.length);
       })
       .finally(() => setLoading(false));
   }
+
 
   useEffect(() => {
     loadDashboardData();
@@ -256,6 +264,21 @@ export default function AdminDashboard() {
                 <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
                 <span>Sync Live Data</span>
               </button>
+
+              <button
+                type="button"
+                onClick={() => setApprovalModalOpen(true)}
+                className="relative flex items-center gap-2 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-xs font-bold text-amber-600 dark:text-amber-400 px-4 py-2.5 rounded-2xl shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <ShieldAlert className="h-3.5 w-3.5 text-amber-500" />
+                <span>Governance Approvals</span>
+                {pendingApprovalsCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-500 text-[10px] font-black text-white animate-pulse">
+                    {pendingApprovalsCount}
+                  </span>
+                )}
+              </button>
+
 
               <button
                 type="button"
@@ -824,6 +847,14 @@ export default function AdminDashboard() {
           )}
         </div>
       )}
+
+      {/* Human Approval Modal */}
+      <HumanApprovalModal
+        isOpen={approvalModalOpen}
+        onClose={() => setApprovalModalOpen(false)}
+        onDecided={() => loadDashboardData()}
+      />
     </div>
+
   );
 }

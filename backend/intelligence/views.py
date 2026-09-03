@@ -35,6 +35,7 @@ class MerchantConfigViewSet(viewsets.ModelViewSet):
     queryset = MerchantConfig.objects.all().order_by('id')
     serializer_class = MerchantConfigSerializer
     permission_classes = [IsSellerOrAdminPermission]
+    pagination_class = None
 
     def get_object(self):
         return MerchantConfig.get_solo()
@@ -53,11 +54,13 @@ class AuditEventViewSet(viewsets.ModelViewSet):
     queryset = AuditEvent.objects.all().order_by('-created_at')
     serializer_class = AuditEventSerializer
     permission_classes = [IsSellerOrAdminPermission]
+    pagination_class = None
 
 class RecoveryTaskViewSet(viewsets.ModelViewSet):
     queryset = RecoveryTask.objects.all().order_by('-created_at')
     serializer_class = RecoveryTaskSerializer
     permission_classes = [IsSellerOrAdminPermission]
+    pagination_class = None
 
 
 # ── Unified Agentic Chat Endpoint ─────────────────────────────────────
@@ -183,6 +186,7 @@ class AgenticChatView(APIView):
                 "productCards": result.get("productCards"),
                 "chartData": result.get("chartData"),
                 "checkout_state": result.get("checkout_state"),
+                "suggestedFollowups": result.get("suggestedFollowups"),
             })
 
         except Exception as e:

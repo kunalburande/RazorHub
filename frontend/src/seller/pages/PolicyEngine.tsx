@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { ShieldAlert, Save, RefreshCw } from "lucide-react";
 import Button from "../components/ui/Button";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, unwrapList } from "../../lib/api";
 
 export default function PolicyEngine() {
   const [config, setConfig] = useState<any>(null);
@@ -11,12 +11,15 @@ export default function PolicyEngine() {
   const fetchConfig = async () => {
     try {
       setLoading(true);
-      // Since it's a singleton, the URL usually returns a list of 1 or the object.
-      const response = await apiRequest("/intelligence/config/");
-      if (Array.isArray(response) && response.length > 0) {
-        setConfig(response[0]);
-      } else {
+      // Since it's a singleton, the URL returns a list or an object or paginated results.
+      const response = await apiRequest<any>("/intelligence/config/");
+      const items = unwrapList(response);
+      if (items.length > 0) {
+        setConfig(items[0]);
+      } else if (response && typeof response === "object" && !Array.isArray(response) && !response.results) {
         setConfig(response);
+      } else {
+        setConfig(null);
       }
     } catch (err) {
       console.error("Error fetching config:", err);

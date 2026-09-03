@@ -214,8 +214,53 @@ class ProductViewSet(viewsets.ModelViewSet):
             _score=cat_score + brand_score + store_score + combo_score + featured_score + rating_score
         ).order_by('-_score', '-rating', '-created_at')[:24]
 
-        serializer = self.get_serializer(candidates, many=True)
+        from .serializers import ProductListSerializer
+        serializer = ProductListSerializer(candidates, many=True)
         return Response(serializer.data)
+
+    @action(detail=True, methods=["get"], url_path="recommendations")
+    def recommendations(self, request, slug=None):
+        product = self.get_object()
+        from .serializers import ProductListSerializer
+
+        # 1. Frequently Bought Together & 3. Cross-Sell:
+        # Dummy representations removed; real recommendation logic will be provided later.
+        fbt_data = None
+        cross_sell_data = []
+
+        # 2. Upsell (Premium upgrades in same category with higher price)
+        upsell_qs = product_queryset(list_mode=True).filter(
+            category_id=product.category_id,
+            price__gt=product.price,
+            is_active=True
+        ).exclude(pk=product.pk).order_by('price', '-rating')[:4]
+        upsell_data = ProductListSerializer(upsell_qs, many=True).data
+
+        # 4. Similar Alternatives (Same category)
+        similar_qs = product_queryset(list_mode=True).filter(
+            category_id=product.category_id,
+            is_active=True
+        ).exclude(pk=product.pk).order_by('-rating')[:6]
+        similar_data = ProductListSerializer(similar_qs, many=True).data
+
+        return Response({
+            "frequently_bought_together": None,
+            "upsell": upsell_data,
+            "cross_sell": cross_sell_data,
+            "similar": similar_data
+        })
+
+    @action(detail=False, methods=["get"], url_path="personalized")
+    def personalized(self, request):
+        from .serializers import ProductListSerializer
+        category_slug = request.query_params.get("category")
+        qs = product_queryset(list_mode=True).filter(is_active=True)
+        if category_slug:
+            qs = qs.filter(category__slug=category_slug)
+
+        # Marketing strategy prioritization: High rating + featured + tags
+        results = qs.order_by('-rating', '-created_at')[:12]
+        return Response(ProductListSerializer(results, many=True).data)
 
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page

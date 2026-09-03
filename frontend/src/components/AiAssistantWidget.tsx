@@ -35,6 +35,7 @@ import {
 } from 'lucide-react';
 
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
 import { useTranslation } from '../i18n/LocaleContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { API_BASE } from '../lib/api';
@@ -49,6 +50,168 @@ interface ChatMessage {
   toolCalls?: any[];
   actionType?: 'products' | 'cart' | 'compare' | 'deals' | 'general';
   suggestedFollowups?: string[];
+}
+
+function FormattedAssistantMessage({
+  text,
+  allProductsMap,
+  onAddToCart,
+  onCompare,
+  onViewDetails,
+}: {
+  text: string;
+  allProductsMap: Map<string, ProductType>;
+  onAddToCart: (prod: ProductType) => void;
+  onCompare: (prod: ProductType) => void;
+  onViewDetails: (prod: ProductType) => void;
+}) {
+  // 1. Extract all product slugs tagged in message: [PRODUCT:slug]
+  const matchedSlugs = useMemo(() => {
+    const regex = /\[PRODUCT:([a-z0-9\-]+)\]/gi;
+    const slugs: string[] = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      if (!slugs.includes(match[1])) {
+        slugs.push(match[1]);
+      }
+    }
+    return slugs;
+  }, [text]);
+
+  // Clean raw tags and asterisks around product tags
+  const cleanedText = useMemo(() => {
+    return text
+      .replace(/\*\*\[PRODUCT:[^\]]+\]\*\*/gi, '')
+      .replace(/\[PRODUCT:[^\]]+\]/gi, '')
+      .trim();
+  }, [text]);
+
+  // Fetch the actual product objects
+  const taggedProducts = useMemo(() => {
+    return matchedSlugs
+      .map(slug => allProductsMap.get(slug))
+      .filter((p): p is ProductType => Boolean(p));
+  }, [matchedSlugs, allProductsMap]);
+
+  // Render markdown text lines
+  const renderTextLines = () => {
+    const lines = cleanedText.split('\n');
+    return lines.map((line, idx) => {
+      const trimmedLine = line.trim();
+      if (!trimmedLine) return <div key={idx} className="h-1.5" />;
+
+      // Header line
+      if (trimmedLine.startsWith('###') || trimmedLine.startsWith('##')) {
+        const hText = trimmedLine.replace(/^#+\s*/, '');
+        return (
+          <h4 key={idx} className="font-black text-xs sm:text-sm text-primary dark:text-white mt-2 mb-1">
+            {hText}
+          </h4>
+        );
+      }
+
+      // Bullet / list item
+      const isBullet = trimmedLine.startsWith('•') || trimmedLine.startsWith('-') || /^\d+\./.test(trimmedLine);
+      const content = isBullet ? trimmedLine.replace(/^[•\-\d\.]+\s*/, '') : trimmedLine;
+
+      // Parse bold **text**
+      const parts = content.split(/(\*\*.*?\*\*)/g);
+
+      return (
+        <div key={idx} className={`text-xs leading-relaxed ${isBullet ? 'flex items-start gap-1.5 py-0.5 pl-1' : 'py-0.5'}`}>
+          {isBullet && <span className="text-indigo-500 font-bold shrink-0 mt-0.5">•</span>}
+          <div>
+            {parts.map((part, pIdx) => {
+              if (part.startsWith('**') && part.endsWith('**')) {
+                return (
+                  <strong key={pIdx} className="font-black text-primary dark:text-white">
+                    {part.slice(2, -2)}
+                  </strong>
+                );
+              }
+              return <span key={pIdx}>{part}</span>;
+            })}
+          </div>
+        </div>
+      );
+    });
+  };
+
+  return (
+    <div className="space-y-3">
+      {/* Formatted Text Content */}
+      <div className="space-y-0.5 text-xs">{renderTextLines()}</div>
+
+      {/* Interactive Micro Product Cards */}
+      {taggedProducts.length > 0 && (
+        <div className="space-y-2 pt-2.5 border-t border-border/50">
+          <p className="text-[10px] font-bold text-secondary uppercase tracking-wider flex items-center gap-1">
+            <Package className="h-3 w-3 text-indigo-500" />
+            Interactive Products ({taggedProducts.length})
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {taggedProducts.map(prod => (
+              <div
+                key={prod.id}
+                className="group/card rounded-xl border border-border/80 bg-surface/90 dark:bg-zinc-900/90 p-2.5 flex items-center justify-between gap-3 shadow-2xs hover:shadow-md hover:border-indigo-500/50 transition-all"
+              >
+                <div
+                  onClick={() => onViewDetails(prod)}
+                  className="flex items-center gap-2.5 min-w-0 cursor-pointer flex-1"
+                  title="View on Canvas"
+                >
+                  <div className="relative h-12 w-12 rounded-lg overflow-hidden bg-muted/40 shrink-0 border border-border/40">
+                    <img
+                      src={productImage(prod)}
+                      alt={prod.name}
+                      className="h-full w-full object-cover group-hover/card:scale-105 transition-transform"
+                      loading="lazy"
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-xs text-primary truncate group-hover/card:text-indigo-500 transition-colors">
+                      {prod.name}
+                    </p>
+                    <div className="flex items-center gap-2 text-[11px] mt-0.5 flex-wrap">
+                      <span className="font-black text-accent">{formatPrice(price(prod))}</span>
+                      <span className="text-amber-500 font-semibold text-[10px]">⭐ {prod.rating || 4.8}</span>
+                      <span className="text-emerald-600 dark:text-emerald-400 font-bold text-[10px]">● In Stock</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddToCart(prod);
+                    }}
+                    className="flex items-center gap-1 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 py-1.5 rounded-lg text-[11px] font-bold shadow-2xs transition-transform active:scale-95 cursor-pointer"
+                    title="Add directly to cart"
+                  >
+                    <ShoppingCart className="h-3 w-3" />
+                    <span className="hidden sm:inline">Add</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onCompare(prod);
+                    }}
+                    className="p-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/80 text-indigo-600 dark:text-indigo-400 rounded-lg text-[11px] font-bold transition-all cursor-pointer border border-indigo-500/20"
+                    title="Compare specs on canvas"
+                  >
+                    <Scale className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function AiAssistantWidget() {
@@ -74,9 +237,26 @@ export default function AiAssistantWidget() {
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
   const [addedAnimationSlug, setAddedAnimationSlug] = useState<string | null>(null);
 
-  // Chat History
+  const { user } = useAuth();
+  const currentUserId = user?.id ? String(user.id) : 'guest';
+  const storageKey = `razorhub-ai-messages-${currentUserId}`;
+
+  const defaultWelcomeMessage: ChatMessage = useMemo(() => ({
+    id: 'welcome',
+    role: 'assistant',
+    agent: 'Orchestrator',
+    text: "Hi! I'm RazorHub AI — your autonomous shopping assistant. Ask me to find products, compare specs, check discounts, or manage your cart in real-time.",
+    suggestedFollowups: [
+      'Find laptops under ₹60,000',
+      'Compare Samsung Galaxy vs iPhone',
+      'Show top rated sneakers',
+      'What deals are active today?',
+    ],
+  }), []);
+
+  // Chat History scoped to current user
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
-    const saved = window.localStorage.getItem('razorhub-ai-messages-v2');
+    const saved = window.localStorage.getItem(storageKey);
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
@@ -85,26 +265,36 @@ export default function AiAssistantWidget() {
         // ignore
       }
     }
-    return [
-      {
-        id: 'welcome',
-        role: 'assistant',
-        agent: 'Orchestrator',
-        text: "Hi! I'm RazorHub AI — your autonomous shopping assistant. Ask me to find products, compare specs, check discounts, or manage your cart in real-time.",
-        suggestedFollowups: [
-          'Find laptops under ₹60,000',
-          'Compare Samsung Galaxy vs iPhone',
-          'Show top rated sneakers',
-          'What deals are active today?',
-        ],
-      },
-    ];
+    return [defaultWelcomeMessage];
   });
 
-  // Save chat to localStorage
+  // Track user login/logout/switch -> automatically reset chat to fresh state
+  const prevUserIdRef = useRef(currentUserId);
   useEffect(() => {
-    window.localStorage.setItem('razorhub-ai-messages-v2', JSON.stringify(messages));
-  }, [messages]);
+    if (prevUserIdRef.current !== currentUserId) {
+      prevUserIdRef.current = currentUserId;
+      const saved = window.localStorage.getItem(`razorhub-ai-messages-${currentUserId}`);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setMessages(parsed);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      setMessages([defaultWelcomeMessage]);
+      setCanvasProducts([]);
+      setCompareList([]);
+    }
+  }, [currentUserId, defaultWelcomeMessage]);
+
+  // Save chat to current user's localStorage
+  useEffect(() => {
+    window.localStorage.setItem(storageKey, JSON.stringify(messages));
+  }, [messages, storageKey]);
 
   // Listen to custom toggle events from Navbar or other buttons
   useEffect(() => {
@@ -182,15 +372,29 @@ export default function AiAssistantWidget() {
     }
 
     const q = query.toLowerCase();
-    const tokens = q.split(/\s+/).filter(t => t.length > 2);
-    if (tokens.length === 0) return [];
+    const STOP_WORDS = new Set([
+      'show', 'find', 'some', 'best', 'good', 'with', 'from', 'for', 'please',
+      'want', 'top', 'rated', 'all', 'the', 'me', 'give', 'display', 'get',
+      'any', 'items', 'products', 'item', 'product', 'recommend', 'suggest',
+      'what', 'deals', 'active', 'today', 'under', 'below', 'less', 'than', 'more'
+    ]);
+    const meaningfulTokens = q
+      .split(/\s+/)
+      .map(t => t.replace(/[^a-z0-9]/g, ''))
+      .filter(t => t.length > 2 && !STOP_WORDS.has(t));
+
+    if (meaningfulTokens.length === 0) return [];
 
     return catalog
       .filter(p => {
         const name = (p.name || '').toLowerCase();
         const cat = (p.category?.name || p.category?.slug || '').toLowerCase();
-        const desc = (p.description || '').toLowerCase();
-        return tokens.some(tok => name.includes(tok) || cat.includes(tok) || desc.includes(tok));
+        const brand = (p.brand?.name || '').toLowerCase();
+
+        return meaningfulTokens.some(tok => {
+          const stem = tok.endsWith('s') && tok.length > 3 ? tok.slice(0, -1) : tok;
+          return name.includes(tok) || name.includes(stem) || cat.includes(tok) || cat.includes(stem) || brand.includes(tok);
+        });
       })
       .slice(0, 16);
   };
@@ -251,30 +455,38 @@ export default function AiAssistantWidget() {
 
       if (matched.length > 0) {
         setCanvasProducts(matched);
-        setActiveTab('products');
+        if (isCompareQuery && matched.length >= 2) {
+          setCompareList(matched.slice(0, 3));
+          setActiveTab('compare');
+        } else {
+          setActiveTab('products');
+        }
       } else if (isCartQuery) {
         setActiveTab('cart');
       } else if (isDealsQuery) {
         setActiveTab('deals');
-      } else if (isCompareQuery && canvasProducts.length >= 2) {
-        setCompareList(canvasProducts.slice(0, 3));
-        setActiveTab('compare');
       }
 
-      // Generate smart follow-up suggestions
-      const followups: string[] = [];
-      if (matched.length > 0) {
-        followups.push(`Sort ${matched.length} items by lowest price`);
-        if (matched.length >= 2) {
-          followups.push(`Compare ${matched[0].name.split(' ').slice(0, 2).join(' ')} vs ${matched[1].name.split(' ').slice(0, 2).join(' ')}`);
+      // Dynamic follow-up suggestions from backend or local catalog
+      const backendFollowups = data.suggestedFollowups;
+      let followups: string[] = Array.isArray(backendFollowups) && backendFollowups.length > 0
+        ? backendFollowups
+        : [];
+
+      if (followups.length === 0) {
+        if (matched.length > 0) {
+          followups.push(`Add ${matched[0].name.split(' ').slice(0, 3).join(' ')} to cart`);
+          if (matched.length >= 2) {
+            followups.push(`Compare ${matched[0].name.split(' ').slice(0, 2).join(' ')} vs ${matched[1].name.split(' ').slice(0, 2).join(' ')}`);
+          }
+          followups.push(`Sort ${matched.length} items by lowest price`);
+        } else if (isCartQuery) {
+          followups.push('Proceed to one-click checkout');
+          followups.push('Apply available coupon codes');
+        } else {
+          followups.push('Show latest electronics deals');
+          followups.push('Find laptops under ₹50,000');
         }
-        followups.push(`Add ${matched[0].name.split(' ').slice(0, 2).join(' ')} to cart`);
-      } else if (isCartQuery) {
-        followups.push('Proceed to one-click checkout');
-        followups.push('Apply available coupon codes');
-      } else {
-        followups.push('Show latest electronics deals');
-        followups.push('Find laptops under ₹50,000');
       }
 
       setMessages(prev => [
@@ -344,23 +556,28 @@ export default function AiAssistantWidget() {
     setActiveTab('compare');
   }
 
+  function handleFollowupClick(chip: string) {
+    if (chip.toLowerCase().includes('compare specs on canvas')) {
+      setActiveTab('compare');
+      return;
+    }
+    const addMatch = chip.match(/Add (.*?) to cart/i);
+    if (addMatch) {
+      const targetName = addMatch[1].toLowerCase().trim();
+      const found = catalog.find(p => p.name.toLowerCase().includes(targetName) || targetName.includes(p.name.toLowerCase()));
+      if (found) {
+        handleAddToCartWithAnimation(found);
+        return;
+      }
+    }
+    handleSendMessage(chip);
+  }
+
   function resetChat() {
-    setMessages([
-      {
-        id: 'welcome',
-        role: 'assistant',
-        agent: 'Orchestrator',
-        text: "Hi! I'm RazorHub AI — your autonomous shopping assistant. Ask me to find products, compare specs, check discounts, or manage your cart in real-time.",
-        suggestedFollowups: [
-          'Find laptops under ₹60,000',
-          'Compare Samsung Galaxy vs iPhone',
-          'Show top rated sneakers',
-          'What deals are active today?',
-        ],
-      },
-    ]);
+    setMessages([defaultWelcomeMessage]);
     setCanvasProducts([]);
     setCompareList([]);
+    window.localStorage.removeItem(storageKey);
   }
 
   // Filtered canvas products based on in-canvas search bar
@@ -966,10 +1183,11 @@ export default function AiAssistantWidget() {
                   <button
                     type="button"
                     onClick={resetChat}
-                    className="p-1.5 text-xs text-secondary hover:text-primary hover:bg-muted/60 rounded-xl transition-colors"
-                    title="New conversation"
+                    className="flex items-center gap-1 px-2.5 py-1 text-xs font-semibold text-secondary hover:text-indigo-600 hover:bg-indigo-500/10 rounded-xl border border-border/70 transition-all cursor-pointer shadow-2xs"
+                    title="Reset chat and start a new conversation"
                   >
-                    <RefreshCw className="h-3.5 w-3.5" />
+                    <RefreshCw className="h-3 w-3" />
+                    <span>New Chat</span>
                   </button>
 
                   <button
@@ -1000,29 +1218,53 @@ export default function AiAssistantWidget() {
 
                     {/* Message Bubble */}
                     <div
-                      className={`max-w-[88%] rounded-2xl px-4 py-2.5 text-xs leading-relaxed ${
+                      className={`max-w-[92%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-xs ${
                         msg.role === 'user'
-                          ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-br-xs shadow-sm font-medium'
-                          : 'bg-muted/60 dark:bg-zinc-800/80 text-primary rounded-bl-xs border border-border/50'
+                          ? 'bg-gradient-to-tr from-indigo-600 to-purple-600 text-white rounded-br-xs font-medium'
+                          : 'bg-muted/60 dark:bg-zinc-800/80 text-primary rounded-bl-xs border border-border/60'
                       }`}
                     >
-                      <p className="whitespace-pre-wrap">{msg.text}</p>
+                      {msg.role === 'user' ? (
+                        <p className="whitespace-pre-wrap">{msg.text}</p>
+                      ) : (
+                        <FormattedAssistantMessage
+                          text={msg.text}
+                          allProductsMap={allProductsMap}
+                          onAddToCart={handleAddToCartWithAnimation}
+                          onCompare={toggleCompare}
+                          onViewDetails={(prod) => {
+                            setCanvasProducts([prod]);
+                            setActiveTab('products');
+                          }}
+                        />
+                      )}
                     </div>
 
                     {/* Follow-up Suggestion Chips */}
                     {msg.role === 'assistant' && msg.suggestedFollowups && msg.suggestedFollowups.length > 0 && (
                       <div className="flex flex-wrap gap-1.5 pt-1 pl-1 max-w-[95%]">
-                        {msg.suggestedFollowups.map((chip, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => handleSendMessage(chip)}
-                            className="inline-flex items-center gap-1 text-[11px] font-semibold text-secondary hover:text-primary bg-surface dark:bg-zinc-800/60 border border-border/70 hover:border-indigo-500/40 px-2.5 py-1 rounded-full shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer text-left"
-                          >
-                            <span>{chip}</span>
-                            <ChevronRight className="h-2.5 w-2.5 opacity-60" />
-                          </button>
-                        ))}
+                        {msg.suggestedFollowups.map((chip, idx) => {
+                          const isAdd = chip.toLowerCase().startsWith('add ');
+                          const isCompare = chip.toLowerCase().includes('compare');
+
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleFollowupClick(chip)}
+                              className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-secondary hover:text-indigo-600 dark:hover:text-indigo-400 bg-surface dark:bg-zinc-800/80 border border-border/80 hover:border-indigo-500/50 px-2.5 py-1.5 rounded-xl shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer text-left"
+                            >
+                              {isAdd ? (
+                                <ShoppingCart className="h-3 w-3 text-emerald-500 shrink-0" />
+                              ) : isCompare ? (
+                                <Scale className="h-3 w-3 text-indigo-500 shrink-0" />
+                              ) : (
+                                <ChevronRight className="h-3 w-3 text-accent shrink-0" />
+                              )}
+                              <span>{chip}</span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

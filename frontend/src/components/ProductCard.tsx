@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { Link } from 'react-router-dom';
 import { ShoppingBag, Star, Store } from 'lucide-react';
-import { formatPrice, price, productImage } from '../lib/products';
+import { formatPrice, price, productImage, PRODUCT_FALLBACK_IMAGE } from '../lib/products';
 import type { ProductType } from '../lib/products';
 import { useTranslation } from '../i18n/LocaleContext';
 
@@ -29,6 +29,9 @@ function ProductCardComponent({ product, compact = false }: ProductCardProps) {
               alt={product.name}
               className="h-full w-full object-cover object-center transition-transform duration-300 ease-out group-hover:scale-110"
               loading="lazy"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).src = PRODUCT_FALLBACK_IMAGE;
+              }}
             />
           ) : (
             <div className="flex h-full w-full items-center justify-center text-secondary">{t('products.noImage', { defaultValue: 'No image' })}</div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { RotateCcw, AlertTriangle, CheckCircle2 } from "lucide-react";
 import Button from "../components/ui/Button";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, unwrapList } from "../../lib/api";
 
 export default function RecoveryDashboard() {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -10,10 +10,11 @@ export default function RecoveryDashboard() {
   useEffect(() => {
     async function fetchData() {
       try {
-        const response = await apiRequest<any[]>("/intelligence/recovery/");
-        setTasks(Array.isArray(response) ? response : []);
+        const response = await apiRequest<any>("/intelligence/recovery/");
+        setTasks(unwrapList(response));
       } catch (err) {
         console.error("Error fetching recovery tasks:", err);
+        setTasks([]);
       } finally {
         setLoading(false);
       }

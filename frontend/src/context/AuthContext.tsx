@@ -12,6 +12,8 @@ export interface User {
   last_name: string;
   phone: string | null;
   address: string | null;
+  avatar?: string | null;
+  avatar_url?: string | null;
   role: Role;
   effective_role: Role;
   is_active: boolean;

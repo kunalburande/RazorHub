@@ -29,16 +29,9 @@ def resolve_image_url(url, context=None):
         request = context.get('request') if context else None
         if request:
             return request.build_absolute_uri(url)
-        from django.conf import settings
-        frontend = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
-        if frontend:
-            return f'{frontend}{url}'
         return url
     if url.startswith('/product-media/'):
-        from django.conf import settings
-        frontend = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
-        if frontend:
-            return f'{frontend}{url}'
+        # Keep relative so Vite/Frontend serves it from the active host
         return url
     return url
 
@@ -123,10 +116,15 @@ class ProductSerializer(ProductListSerializer):
         required=False,
         allow_empty=True,
     )
+    image_url = serializers.SerializerMethodField()
     inventory = InventorySerializer(read_only=True)
     category = CategorySerializer(read_only=True)
     brand = BrandSerializer(read_only=True)
     store = StoreSerializer(read_only=True)
+
+    def get_image_url(self, obj):
+        prim = obj.images.filter(is_primary=True).first() or obj.images.first()
+        return resolve_image_url(prim.image_url, self.context) if prim else ''
 
     class Meta:
         model = Product
@@ -134,10 +132,10 @@ class ProductSerializer(ProductListSerializer):
             'id', 'name', 'slug', 'store', 'category', 'category_id', 'brand', 'brand_id',
             'description', 'specifications', 'specs',
             'price', 'discount_price', 'stock', 'rating',
-            'tag', 'images', 'primary_image_url', 'remove_image_ids', 'inventory', 'review_count', 'average_rating', 'is_featured', 'is_active',
+            'tag', 'image_url', 'images', 'primary_image_url', 'remove_image_ids', 'inventory', 'review_count', 'average_rating', 'is_featured', 'is_active',
             'created_at', 'updated_at'
         ]
-        read_only_fields = ["id", "slug", "store", "images", "inventory", "created_at", "updated_at"]
+        read_only_fields = ["id", "slug", "store", "image_url", "images", "inventory", "created_at", "updated_at"]
 
     def create(self, validated_data):
         image_url = validated_data.pop("primary_image_url", "")

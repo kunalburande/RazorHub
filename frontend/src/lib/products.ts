@@ -89,11 +89,22 @@ export interface StoreType {
   updated_at: string;
 }
 
+export const PRODUCT_FALLBACK_IMAGE = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 400' width='400' height='400'%3E%3Crect width='400' height='400' fill='%23f8fafc'/%3E%3Cpath d='M140 150 C140 115 165 95 200 95 C235 95 260 115 260 150 M110 150 L290 150 L305 310 L95 310 Z' fill='none' stroke='%2394a3b8' stroke-width='14' stroke-linecap='round' stroke-linejoin='round'/%3E%3Ccircle cx='200' cy='225' r='18' fill='%23cbd5e1'/%3E%3C/svg%3E";
+
+export function normalizeImageUrl(url?: string | null): string {
+  if (!url) return '';
+  if (url.includes('razorhub.vercel.app/product-media/')) {
+    return url.replace(/^https?:\/\/razorhub\.vercel\.app/, '');
+  }
+  return url;
+}
+
 export function productImage(product: ProductType) {
   if (!product) return '';
-  if (product.image_url) return product.image_url;
+  if (product.image_url) return normalizeImageUrl(product.image_url);
   if (Array.isArray(product.images) && product.images.length > 0) {
-    return product.images.find((image) => image.is_primary)?.image_url || product.images[0]?.image_url || '';
+    const found = product.images.find((image) => image.is_primary)?.image_url || product.images[0]?.image_url || '';
+    return normalizeImageUrl(found);
   }
   return '';
 }

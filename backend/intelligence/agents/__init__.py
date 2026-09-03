@@ -1,6 +1,6 @@
 """
 Universal Multi-LLM Base Agent for RazorHub Multi-Agent Intelligence System.
-Supports OpenRouter, Groq, Mistral, Qwen, xAI/Grok, Google Gemini, and OpenAI.
+Prioritizes free/reliable APIs: Google Gemini, Mistral AI, OpenRouter.
 Includes resilient fallback to rule-based agentic business logic.
 """
 import os
@@ -11,8 +11,7 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-
-# Module-level set of providers that have returned permanent auth/credit errors (e.g. 401, 402)
+# Module-level set of providers that have returned permanent auth/credit errors (e.g. 401, 402, 429)
 _disabled_providers: set[str] = set()
 
 
@@ -31,15 +30,12 @@ class BaseAgent:
     def _call_llm(self, messages: list[dict], context: dict,
                   temperature: float = 0.7, max_tokens: int = 2048) -> str:
         """
-        Multi-provider LLM caller with fast 4s timeout and auto-disabling on 401/402 errors.
-        Tries configured API keys in priority order:
-        1. OpenRouter
-        2. Groq
-        3. Mistral AI
-        4. xAI / Grok
-        5. Qwen / DashScope
-        6. Google Gemini
-        7. OpenAI
+        Multi-provider LLM caller with fast 3.5s timeout.
+        Priority order:
+        1. Google Gemini (free tier, fast, high capacity)
+        2. Mistral AI (generous free tier, excellent reasoning)
+        3. OpenRouter (open ecosystem, auto-routing)
+        4. Fallbacks (Groq, OpenAI)
         """
         system_prompt = self.get_system_prompt(context)
         formatted_messages = [{"role": "system", "content": system_prompt}]
@@ -49,140 +45,9 @@ class BaseAgent:
             if content:
                 formatted_messages.append({"role": role, "content": content})
 
-        # 1. OpenRouter
-        if "openrouter" not in _disabled_providers:
-            openrouter_key = os.environ.get("OPENROUTER_API_KEY") or getattr(settings, "OPENROUTER_API_KEY", None)
-            if openrouter_key:
-                try:
-                    model = os.environ.get("OPENROUTER_MODEL", "openrouter/auto")
-                    res = requests.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        headers={
-                            "Authorization": f"Bearer {openrouter_key}",
-                            "Content-Type": "application/json",
-                            "HTTP-Referer": "https://razorhub.local",
-                            "X-Title": "RazorHub",
-                        },
-                        json={
-                            "model": model,
-                            "messages": formatted_messages,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
-                        },
-                        timeout=4
-                    )
-                    if res.status_code == 200:
-                        data = res.json()
-                        return data["choices"][0]["message"]["content"]
-                    elif res.status_code in (401, 402, 403):
-                        _disabled_providers.add("openrouter")
-                        logger.info(f"Disabling OpenRouter (status {res.status_code})")
-                except Exception as e:
-                    logger.debug(f"[{self.name}] OpenRouter call error: {e}")
-
-        # 2. Groq
-        if "groq" not in _disabled_providers:
-            groq_key = os.environ.get("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
-            if groq_key:
-                try:
-                    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
-                    res = requests.post(
-                        "https://api.groq.com/openai/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": formatted_messages,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
-                        },
-                        timeout=4
-                    )
-                    if res.status_code == 200:
-                        data = res.json()
-                        return data["choices"][0]["message"]["content"]
-                    elif res.status_code in (401, 402, 403):
-                        _disabled_providers.add("groq")
-                except Exception as e:
-                    logger.debug(f"[{self.name}] Groq call error: {e}")
-
-        # 3. Mistral AI
-        if "mistral" not in _disabled_providers:
-            mistral_key = os.environ.get("MISTRAL_API_KEY") or getattr(settings, "MISTRAL_API_KEY", None)
-            if mistral_key:
-                try:
-                    model = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
-                    res = requests.post(
-                        "https://api.mistral.ai/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {mistral_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": formatted_messages,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
-                        },
-                        timeout=4
-                    )
-                    if res.status_code == 200:
-                        data = res.json()
-                        return data["choices"][0]["message"]["content"]
-                    elif res.status_code in (401, 402, 403):
-                        _disabled_providers.add("mistral")
-                except Exception as e:
-                    logger.debug(f"[{self.name}] Mistral call error: {e}")
-
-        # 4. xAI / Grok
-        if "xai" not in _disabled_providers:
-            grok_key = os.environ.get("XAI_API_KEY") or os.environ.get("GROK_API_KEY") or getattr(settings, "GROK_API_KEY", None)
-            if grok_key:
-                try:
-                    model = os.environ.get("GROK_MODEL", "grok-2-latest")
-                    res = requests.post(
-                        "https://api.x.ai/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {grok_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": formatted_messages,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
-                        },
-                        timeout=4
-                    )
-                    if res.status_code == 200:
-                        data = res.json()
-                        return data["choices"][0]["message"]["content"]
-                    elif res.status_code in (401, 402, 403):
-                        _disabled_providers.add("xai")
-                except Exception as e:
-                    logger.debug(f"[{self.name}] Grok call error: {e}")
-
-        # 5. Qwen / DashScope
-        if "qwen" not in _disabled_providers:
-            qwen_key = os.environ.get("QWEN_API_KEY") or os.environ.get("DASHSCOPE_API_KEY") or getattr(settings, "QWEN_API_KEY", None)
-            if qwen_key:
-                try:
-                    model = os.environ.get("QWEN_MODEL", "qwen-plus")
-                    res = requests.post(
-                        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
-                        headers={"Authorization": f"Bearer {qwen_key}", "Content-Type": "application/json"},
-                        json={
-                            "model": model,
-                            "messages": formatted_messages,
-                            "temperature": temperature,
-                            "max_tokens": max_tokens,
-                        },
-                        timeout=4
-                    )
-                    if res.status_code == 200:
-                        data = res.json()
-                        return data["choices"][0]["message"]["content"]
-                    elif res.status_code in (401, 402, 403):
-                        _disabled_providers.add("qwen")
-                except Exception as e:
-                    logger.debug(f"[{self.name}] Qwen call error: {e}")
-
-        # 6. Google Gemini REST API
+        # ── 1. Google Gemini (Primary Free Provider) ──
         if "gemini" not in _disabled_providers:
-            gemini_key = os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", None)
+            gemini_key = os.environ.get("GEMINI_API_KEY") or getattr(settings, "GEMINI_API_KEY", None) or os.environ.get("GOOGLE_API_KEY")
             if gemini_key and not gemini_key.startswith("AQ."):
                 for model_name in ["gemini-2.0-flash", "gemini-1.5-flash-latest"]:
                     try:
@@ -208,10 +73,96 @@ class BaseAgent:
                                 parts = candidates[0].get("content", {}).get("parts", [])
                                 if parts:
                                     return parts[0].get("text", "")
+                        elif res.status_code in (401, 402, 403, 429):
+                            _disabled_providers.add("gemini")
+                            logger.info(f"Disabling Gemini (status {res.status_code})")
+                            break
                     except Exception as e:
-                        logger.debug(f"[{self.name}] Gemini call error: {e}")
+                        logger.debug(f"[{self.name}] Gemini error: {e}")
 
-        # 7. OpenAI
+        # ── 2. Mistral AI (Secondary Fast Provider) ──
+        if "mistral" not in _disabled_providers:
+            mistral_key = os.environ.get("MISTRAL_API_KEY") or getattr(settings, "MISTRAL_API_KEY", None)
+            if mistral_key:
+                try:
+                    model = os.environ.get("MISTRAL_MODEL", "mistral-small-latest")
+                    res = requests.post(
+                        "https://api.mistral.ai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {mistral_key}", "Content-Type": "application/json"},
+                        json={
+                            "model": model,
+                            "messages": formatted_messages,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                        },
+                        timeout=4
+                    )
+                    if res.status_code == 200:
+                        data = res.json()
+                        return data["choices"][0]["message"]["content"]
+                    elif res.status_code in (401, 402, 403, 429):
+                        _disabled_providers.add("mistral")
+                        logger.info(f"Disabling Mistral (status {res.status_code})")
+                except Exception as e:
+                    logger.debug(f"[{self.name}] Mistral error: {e}")
+
+        # ── 3. OpenRouter (Tertiary Auto Provider) ──
+        if "openrouter" not in _disabled_providers:
+            openrouter_key = os.environ.get("OPENROUTER_API_KEY") or getattr(settings, "OPENROUTER_API_KEY", None)
+            if openrouter_key:
+                try:
+                    model = os.environ.get("OPENROUTER_MODEL", "openrouter/auto")
+                    res = requests.post(
+                        "https://openrouter.ai/api/v1/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {openrouter_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://razorhub.local",
+                            "X-Title": "RazorHub",
+                        },
+                        json={
+                            "model": model,
+                            "messages": formatted_messages,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                        },
+                        timeout=4
+                    )
+                    if res.status_code == 200:
+                        data = res.json()
+                        return data["choices"][0]["message"]["content"]
+                    elif res.status_code in (401, 402, 403, 429):
+                        _disabled_providers.add("openrouter")
+                        logger.info(f"Disabling OpenRouter (status {res.status_code})")
+                except Exception as e:
+                    logger.debug(f"[{self.name}] OpenRouter error: {e}")
+
+        # ── 4. Fallback Groq ──
+        if "groq" not in _disabled_providers:
+            groq_key = os.environ.get("GROQ_API_KEY") or getattr(settings, "GROQ_API_KEY", None)
+            if groq_key:
+                try:
+                    model = os.environ.get("GROQ_MODEL", "llama-3.3-70b-versatile")
+                    res = requests.post(
+                        "https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {groq_key}", "Content-Type": "application/json"},
+                        json={
+                            "model": model,
+                            "messages": formatted_messages,
+                            "temperature": temperature,
+                            "max_tokens": max_tokens,
+                        },
+                        timeout=4
+                    )
+                    if res.status_code == 200:
+                        data = res.json()
+                        return data["choices"][0]["message"]["content"]
+                    elif res.status_code in (401, 402, 403, 429):
+                        _disabled_providers.add("groq")
+                except Exception as e:
+                    logger.debug(f"[{self.name}] Groq error: {e}")
+
+        # ── 5. Fallback OpenAI ──
         if "openai" not in _disabled_providers:
             openai_key = os.environ.get("OPENAI_API_KEY") or getattr(settings, "OPENAI_API_KEY", None)
             if openai_key:
@@ -231,13 +182,12 @@ class BaseAgent:
                     if res.status_code == 200:
                         data = res.json()
                         return data["choices"][0]["message"]["content"]
-                    elif res.status_code in (401, 402, 403):
+                    elif res.status_code in (401, 402, 403, 429):
                         _disabled_providers.add("openai")
                 except Exception as e:
-                    logger.debug(f"[{self.name}] OpenAI call error: {e}")
+                    logger.debug(f"[{self.name}] OpenAI error: {e}")
 
         raise RuntimeError("No working LLM provider available or all requests timed out.")
-
 
     def call_gemini(self, messages: list[dict], context: dict,
                     temperature: float = 0.7, max_tokens: int = 2048) -> str:

@@ -45,7 +45,7 @@ export function executeTool({
         name: toolName,
         result: {
           totalProducts,
-          catalogValuation: `₹${catalogValue.toLocaleString("en-US")}`,
+          catalogValuation: `₹${catalogValue.toLocaleString("en-IN")}`,
           uniqueCategories,
           averageProductPrice: `₹${avgPrice}`,
           totalRegisteredUsers: users.length,
@@ -247,7 +247,7 @@ export function executeTool({
         result: {
           totalProductsCount: products.length,
           totalInventoryUnits: totalUnits,
-          totalInventoryWorth: `₹${totalWorth.toLocaleString("en-US")}`,
+          totalInventoryWorth: `₹${totalWorth.toLocaleString("en-IN")}`,
           outOfStockCount: outOfStock,
           lowStockCount: lowStock,
           inStockCount: products.length - outOfStock - lowStock,
@@ -296,7 +296,7 @@ export function executeTool({
       const breakdown = Object.entries(catMap).map(([category, data]) => ({
         category,
         productCount: data.count,
-        totalValuation: `₹${data.totalVal.toLocaleString("en-US")}`,
+        totalValuation: `₹${data.totalVal.toLocaleString("en-IN")}`,
         averagePrice: `₹${Math.round(data.totalVal / (data.count || 1))}`,
       }));
 

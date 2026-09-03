@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { ClipboardList, Search, Filter } from "lucide-react";
 import Button from "../components/ui/Button";
-import { apiRequest } from "../../lib/api";
+import { apiRequest, unwrapList } from "../../lib/api";
 
 interface AuditEvent {
   id: string;
@@ -16,13 +16,33 @@ interface AuditEvent {
 export default function AuditTrail() {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
-    apiRequest<AuditEvent[]>("/intelligence/audit/")
-      .then(setEvents)
-      .catch((err) => console.error(err))
+    apiRequest<any>("/intelligence/audit/")
+      .then((data) => {
+        setEvents(unwrapList<AuditEvent>(data));
+      })
+      .catch((err) => {
+        console.error("Error fetching audit events:", err);
+        setEvents([]);
+      })
       .finally(() => setLoading(false));
   }, []);
+
+  const safeEvents = Array.isArray(events) ? events : [];
+  const filteredEvents = useMemo(() => {
+    if (!search.trim()) return safeEvents;
+    const q = search.toLowerCase();
+    return safeEvents.filter(
+      (ev) =>
+        ev.event_id?.toLowerCase().includes(q) ||
+        ev.action?.toLowerCase().includes(q) ||
+        ev.agent?.toLowerCase().includes(q) ||
+        ev.details?.toLowerCase().includes(q) ||
+        ev.status?.toLowerCase().includes(q)
+    );
+  }, [safeEvents, search]);
 
   return (
     <div className="min-h-[85vh] bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 rounded-3xl p-8 border border-gray-200 dark:border-gray-800 shadow-2xl text-gray-900 dark:text-white transition-colors duration-300">
@@ -39,7 +59,13 @@ export default function AuditTrail() {
         <div className="flex gap-3 w-full md:w-auto">
           <div className="relative flex-1 md:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-            <input type="text" placeholder="Search events..." className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 dark:text-white focus:ring-teal-500 focus:outline-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search events..."
+              className="w-full bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-xl pl-9 pr-4 py-2 text-sm text-gray-900 dark:text-white focus:ring-teal-500 focus:outline-none"
+            />
           </div>
           <Button className="bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-800 dark:text-white rounded-xl px-4 py-2 text-sm shadow-sm border border-gray-300 dark:border-gray-700">
             <Filter className="h-4 w-4" />
@@ -65,9 +91,9 @@ export default function AuditTrail() {
                 <tr>
                   <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Loading audit trail...</td>
                 </tr>
-              ) : events.length === 0 ? (
+              ) : filteredEvents.length === 0 ? (
                 <tr><td colSpan={6} className="px-6 py-8 text-center text-gray-500">No events recorded yet.</td></tr>
-              ) : events.map((log) => (
+              ) : filteredEvents.map((log) => (
                 <tr key={log.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
                   <td className="px-6 py-4 font-mono text-gray-900 dark:text-gray-300">{log.event_id}</td>
                   <td className="px-6 py-4">{new Date(log.created_at).toLocaleString()}</td>

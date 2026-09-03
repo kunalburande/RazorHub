@@ -1,0 +1,1071 @@
+{
+  "status": "ALL_RESOLVED",
+  "total_audited": 133,
+  "resolved_count": 133,
+  "items": [
+    {
+      "id": 386,
+      "name": "Ceramic Minimalist Desk Organizer",
+      "category": "Jewellery & Accessories",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/ceramic-minimalist-desk-organizer.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 380,
+      "name": "Minimalist Titanium Smart Fitness Ring",
+      "category": "Jewellery & Accessories",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/minimalist-titanium-smart-fitness-ring.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 363,
+      "name": "Urban Hiker Vibram Sole Trail Sneakers",
+      "category": "Sneakers",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/urban-hiker-vibram-sole-trail-sneakers.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 355,
+      "name": "Herman Miller Aeron Ergonomic Chair",
+      "category": "Furniture",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/herman-miller-aeron-ergonomic-chair.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 322,
+      "name": "All Out Ultra Mosquito Repellent Refill",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/all-out-ultra-mosquito-repellent-refill.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 321,
+      "name": "Odonil Room Spray",
+      "category": "Flash Deals",
+      "old_status": "HTTP_400",
+      "current_image_url": "/product-media/catalog/odonil-room-spray.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 320,
+      "name": "Durex Mutual Climax Condoms",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/durex-mutual-climax-condoms.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 319,
+      "name": "Gillette Mach3 Razor",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/gillette-mach3-razor.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 318,
+      "name": "Himalaya Purifying Neem Face Wash",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/himalaya-purifying-neem-face-wash.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 317,
+      "name": "Nivea Men Dark Spot Reduction Face Wash",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/nivea-men-dark-spot-reduction-face-wash.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 316,
+      "name": "Classmate Pulse Spiral Notebook",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/classmate-pulse-spiral-notebook.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 315,
+      "name": "Cello Pinpoint Ball Pen Set",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/cello-pinpoint-ball-pen-set.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 314,
+      "name": "Milton Thermosteel Flip Lid Flask",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/milton-thermosteel-flip-lid-flask.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 313,
+      "name": "Pigeon Handy Mini Chopper",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/pigeon-handy-mini-chopper.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 312,
+      "name": "Godrej aer pocket Bathroom Fragrance",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/godrej-aer-pocket-bathroom-fragrance.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 311,
+      "name": "Duracell Chota Power AA Batteries",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/duracell-chota-power-aa-batteries.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 309,
+      "name": "Spigen EZ Fit Tempered Glass for iPhone 15",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/spigen-ez-fit-tempered-glass-for-iphone-15.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 308,
+      "name": "OnePlus Bullets Wireless Z2",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/oneplus-bullets-wireless-z2.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 307,
+      "name": "Sony WI-C100 Wireless Headphones",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/sony-wi-c100-wireless-headphones.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 306,
+      "name": "Realme Buds Wireless 3",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/realme-buds-wireless-3.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 305,
+      "name": "JBL C100SI Wired In Ear Headphones",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/jbl-c100si-wired-in-ear-headphones.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 304,
+      "name": "Redgear Pro Wireless Gamepad",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/redgear-pro-wireless-gamepad.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 303,
+      "name": "Cosmic Byte CB-GK-16 Firefly Mechanical Keyboard",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/cosmic-byte-cb-gk-16-firefly-mechanical-keyboard.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 302,
+      "name": "Amazon Basics High-Speed HDMI Cable",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/amazon-basics-high-speed-hdmi-cable.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 300,
+      "name": "HP v236w 64GB USB 2.0 Pen Drive",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/hp-v236w-64gb-usb-20-pen-drive.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 299,
+      "name": "Zebronics Zeb-Jupiter Pro Gaming Mouse",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/zebronics-zeb-jupiter-pro-gaming-mouse.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 297,
+      "name": "Mi 10000mAH Li-Polymer Power Bank 3i",
+      "category": "Flash Deals",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mi-10000mah-li-polymer-power-bank-3i.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 296,
+      "name": "SanDisk Ultra Dual Drive Go 64GB",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/sandisk-ultra-dual-drive-go-64gb.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 295,
+      "name": "Portronics Power PRO 10K Power Bank",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/portronics-power-pro-10k-power-bank.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 293,
+      "name": "Noise Pulse 2 Max Smart Watch",
+      "category": "Flash Deals",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/noise-pulse-2-max-smart-watch.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 292,
+      "name": "Dettol Original Liquid Handwash, 1.5L",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/dettol-original-liquid-handwash-15l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 291,
+      "name": "Colgate Strong Teeth Toothpaste, 500g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/colgate-strong-teeth-toothpaste-500g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 290,
+      "name": "Lizol Surface Cleaner, 2L",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/lizol-surface-cleaner-2l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 289,
+      "name": "Vim Dishwash Liquid Gel, 1L",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/vim-dishwash-liquid-gel-1l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 288,
+      "name": "Surf Excel Easy Wash Detergent Powder, 5kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/surf-excel-easy-wash-detergent-powder-5kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 287,
+      "name": "Saffola Gold Blended Oil, 5L",
+      "category": "Groceries",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/saffola-gold-blended-oil-5l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 286,
+      "name": "Patanjali Honey, 1kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/patanjali-honey-1kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 285,
+      "name": "Kissan Mixed Fruit Jam, 500g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/kissan-mixed-fruit-jam-500g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 282,
+      "name": "Catch Super Garam Masala, 100g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/catch-super-garam-masala-100g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 281,
+      "name": "Tata Sampann Unpolished Toor Dal, 1kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/tata-sampann-unpolished-toor-dal-1kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 279,
+      "name": "Amul Taaza Toned Milk, 1L",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/amul-taaza-toned-milk-1l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 277,
+      "name": "Tropicana 100% Orange Juice, 1L",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/tropicana-100-orange-juice-1l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 276,
+      "name": "Kurkure Masala Munch, 115g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/kurkure-masala-munch-115g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 275,
+      "name": "Lays India's Magic Masala, 115g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/lays-indias-magic-masala-115g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 274,
+      "name": "Haldiram's Bhujia Sev, 1kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/haldirams-bhujia-sev-1kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 273,
+      "name": "Parle-G Gold, 1kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/parle-g-gold-1kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 272,
+      "name": "Britannia Good Day Cashew Cookies, 600g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/britannia-good-day-cashew-cookies-600g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 270,
+      "name": "Maggi 2-Minute Noodles, 840g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/maggi-2-minute-noodles-840g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 269,
+      "name": "Taj Mahal Tea, 500g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/taj-mahal-tea-500g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 268,
+      "name": "Nescafe Classic Coffee, 100g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/nescafe-classic-coffee-100g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 267,
+      "name": "Amul Butter, 500g",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/amul-butter-500g.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 266,
+      "name": "Fortune Sunlite Refined Sunflower Oil, 1L",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/fortune-sunlite-refined-sunflower-oil-1l.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 265,
+      "name": "India Gate Basmati Rice Rozana, 5kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/india-gate-basmati-rice-rozana-5kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 264,
+      "name": "Aashirvaad Superior MP Sharbati Atta, 5kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/aashirvaad-superior-mp-sharbati-atta-5kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 263,
+      "name": "Tata Salt, 1kg",
+      "category": "Groceries",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/tata-salt-1kg.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 251,
+      "name": "Nike Air Max 90",
+      "category": "Fashion",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/nike-air-max-90.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 240,
+      "name": "Adidas Originals Stan Smith",
+      "category": "Fashion",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/adidas-originals-stan-smith.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 238,
+      "name": "H&M Relaxed Fit Hoodie",
+      "category": "Fashion",
+      "old_status": "HTTP_410",
+      "current_image_url": "/product-media/catalog/hm-relaxed-fit-hoodie.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 237,
+      "name": "Zara Basic Cotton T-Shirt",
+      "category": "Fashion",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/zara-basic-cotton-t-shirt.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 234,
+      "name": "Adidas Ultraboost Light",
+      "category": "Fashion",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/adidas-ultraboost-light.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 232,
+      "name": "Ecovacs Deebot N8 2-in-1 Robotic Vacuum Cleaner",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/ecovacs-deebot-n8-2-in-1-robotic-vacuum-cleaner.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 230,
+      "name": "Kaff 60 cm 1000 m3/h Chimney",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/kaff-60-cm-1000-m3h-chimney.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 227,
+      "name": "Crompton Ozone 55-Litre Desert Air Cooler",
+      "category": "Appliances",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/crompton-ozone-55-litre-desert-air-cooler.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 222,
+      "name": "Prestige Iris 750 Watt Mixer Grinder",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/prestige-iris-750-watt-mixer-grinder.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 218,
+      "name": "Havells Instanio 3-Litre Instant Water Heater",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/havells-instanio-3-litre-instant-water-heater.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 217,
+      "name": "Morphy Richards 30 L Oven Toaster Grill",
+      "category": "Appliances",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/morphy-richards-30-l-oven-toaster-grill.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 212,
+      "name": "Eureka Forbes Aquaguard Ritz Water Purifier",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/eureka-forbes-aquaguard-ritz-water-purifier.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 211,
+      "name": "Bajaj GX-1 Mixer Grinder",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/bajaj-gx-1-mixer-grinder.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 210,
+      "name": "IFB 20 L Convection Microwave Oven",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/ifb-20-l-convection-microwave-oven.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 209,
+      "name": "Bosch 13 Place Settings Dishwasher",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/bosch-13-place-settings-dishwasher.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 207,
+      "name": "Philips Air Fryer HD9200/90",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/philips-air-fryer-hd920090.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 206,
+      "name": "Sony Bravia 65 inches 4K Ultra HD Smart LED TV",
+      "category": "Appliances",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/sony-bravia-65-inches-4k-ultra-hd-smart-led-tv.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 205,
+      "name": "Whirlpool 7 Kg 5 Star Royal Fully-Automatic Top Loading Washing Machine",
+      "category": "Appliances",
+      "old_status": "HTTP_403",
+      "current_image_url": "/product-media/catalog/whirlpool-7-kg-5-star-royal-fully-automatic-top-loading-washing-machine.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 204,
+      "name": "Samsung 236 L 2 Star Digital Inverter Refrigerator",
+      "category": "Appliances",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/samsung-236-l-2-star-digital-inverter-refrigerator.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 203,
+      "name": "LG 1.5 Ton 5 Star AI Dual Inverter Split AC",
+      "category": "Appliances",
+      "old_status": "HTTP_403",
+      "current_image_url": "/product-media/catalog/lg-15-ton-5-star-ai-dual-inverter-split-ac.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 201,
+      "name": "Steam Deck OLED",
+      "category": "Laptops",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/steam-deck-oled.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 200,
+      "name": "Nintendo Switch OLED",
+      "category": "Laptops",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/nintendo-switch-oled.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 199,
+      "name": "Xbox Series X",
+      "category": "Laptops",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/xbox-series-x.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 198,
+      "name": "Sony PlayStation 5",
+      "category": "Laptops",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/sony-playstation-5.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 183,
+      "name": "Dell Inspiron 15",
+      "category": "Laptops",
+      "old_status": "HTTP_403",
+      "current_image_url": "/product-media/catalog/dell-inspiron-15.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 182,
+      "name": "Alienware m16",
+      "category": "Laptops",
+      "old_status": "HTTP_403",
+      "current_image_url": "/product-media/catalog/alienware-m16.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 181,
+      "name": "Razer Blade 15",
+      "category": "Laptops",
+      "old_status": "ERROR",
+      "current_image_url": "/product-media/catalog/razer-blade-15.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 180,
+      "name": "MSI Stealth 16",
+      "category": "Laptops",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/msi-stealth-16.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 179,
+      "name": "Acer Predator Helios Neo",
+      "category": "Laptops",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/acer-predator-helios-neo.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 177,
+      "name": "HP Omen 16",
+      "category": "Laptops",
+      "old_status": "HTTP_403",
+      "current_image_url": "/product-media/catalog/hp-omen-16.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 176,
+      "name": "Lenovo Legion Pro 7i",
+      "category": "Laptops",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/lenovo-legion-pro-7i.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 174,
+      "name": "Dell XPS 15",
+      "category": "Laptops",
+      "old_status": "HTTP_403",
+      "current_image_url": "/product-media/catalog/dell-xps-15.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 172,
+      "name": "Oppo Reno 11",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/oppo-reno-11.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 169,
+      "name": "Samsung Galaxy Z Flip 5",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/samsung-galaxy-z-flip-5.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 168,
+      "name": "Redmi Note 13 Pro",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/redmi-note-13-pro.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 162,
+      "name": "Lenovo Tab P12",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/lenovo-tab-p12.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 160,
+      "name": "iPad Air",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/ipad-air.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 159,
+      "name": "Samsung Galaxy Tab S9 Ultra",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/samsung-galaxy-tab-s9-ultra.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 158,
+      "name": "iPad Pro M4",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/ipad-pro-m4.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 157,
+      "name": "Samsung Galaxy A55",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/samsung-galaxy-a55.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 156,
+      "name": "iQOO 12",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/iqoo-12.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 155,
+      "name": "Poco X6 Pro",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/poco-x6-pro.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 151,
+      "name": "Nothing Phone (2a)",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/nothing-phone-2a.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 150,
+      "name": "Motorola Edge 50 Pro",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/motorola-edge-50-pro.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 149,
+      "name": "Samsung Galaxy Z Fold 5",
+      "category": "Mobiles",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/samsung-galaxy-z-fold-5.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 142,
+      "name": "Women'S Clothing Item 30 - Premium Edition",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/womens-clothing-item-30-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 137,
+      "name": "Women'S Clothing Item 25 - Premium Edition",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/womens-clothing-item-25-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 132,
+      "name": "Women'S Clothing Item 20 - Premium Edition",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/womens-clothing-item-20-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 127,
+      "name": "Women'S Clothing Item 15 - Premium Edition",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/womens-clothing-item-15-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 122,
+      "name": "Women'S Clothing Item 10 - Premium Edition",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/womens-clothing-item-10-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 117,
+      "name": "Women'S Clothing Item 5 - Premium Edition",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/womens-clothing-item-5-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 112,
+      "name": "Men'S Clothing Item 30 - Premium Edition",
+      "category": "Men's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mens-clothing-item-30-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 107,
+      "name": "Men'S Clothing Item 25 - Premium Edition",
+      "category": "Men's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mens-clothing-item-25-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 102,
+      "name": "Men'S Clothing Item 20 - Premium Edition",
+      "category": "Men's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mens-clothing-item-20-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 97,
+      "name": "Men'S Clothing Item 15 - Premium Edition",
+      "category": "Men's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mens-clothing-item-15-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 92,
+      "name": "Men'S Clothing Item 10 - Premium Edition",
+      "category": "Men's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mens-clothing-item-10-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 87,
+      "name": "Men'S Clothing Item 5 - Premium Edition",
+      "category": "Men's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/mens-clothing-item-5-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 82,
+      "name": "Jewelery Item 30 - Premium Edition",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/jewelery-item-30-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 77,
+      "name": "Jewelery Item 25 - Premium Edition",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/jewelery-item-25-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 72,
+      "name": "Jewelery Item 20 - Premium Edition",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/jewelery-item-20-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 67,
+      "name": "Jewelery Item 15 - Premium Edition",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/jewelery-item-15-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 62,
+      "name": "Jewelery Item 10 - Premium Edition",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/jewelery-item-10-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 57,
+      "name": "Jewelery Item 5 - Premium Edition",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/jewelery-item-5-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 52,
+      "name": "Electronics Item 30 - Premium Edition",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/electronics-item-30-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 47,
+      "name": "Electronics Item 25 - Premium Edition",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/electronics-item-25-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 42,
+      "name": "Electronics Item 20 - Premium Edition",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/electronics-item-20-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 37,
+      "name": "Electronics Item 15 - Premium Edition",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/electronics-item-15-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 32,
+      "name": "Electronics Item 10 - Premium Edition",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/electronics-item-10-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 27,
+      "name": "Electronics Item 5 - Premium Edition",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/electronics-item-5-premium-edition.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 22,
+      "name": "DANVOUY Womens T Shirt Casual Cotton Short",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/danvouy-womens-t-shirt-casual-cotton-short.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 17,
+      "name": "BIYLACLESEN Women's 3-in-1 Snowboard Jacket Winter Coats",
+      "category": "Women's Clothing",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/biylaclesen-womens-3-in-1-snowboard-jacket-winter-coats.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 14,
+      "name": "WD 4TB Gaming Drive Works with Playstation 4 Portable External Hard Drive",
+      "category": "Electronics",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/wd-4tb-gaming-drive-works-with-playstation-4-portable-external-hard-drive.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 12,
+      "name": "SanDisk SSD PLUS 1TB Internal SSD - SATA III 6 Gb/s",
+      "category": "Electronics",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/sandisk-ssd-plus-1tb-internal-ssd-sata-iii-6-gbs.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 11,
+      "name": "WD 2TB Elements Portable External Hard Drive - USB 3.0 ",
+      "category": "Electronics",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/wd-2tb-elements-portable-external-hard-drive-usb-30.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 7,
+      "name": "John Hardy Women's Legends Naga Gold & Silver Dragon Station Chain Bracelet",
+      "category": "Jewellery & Accessories",
+      "old_status": "GENERIC_OR_PLACEHOLDER",
+      "current_image_url": "/product-media/catalog/john-hardy-womens-legends-naga-gold-silver-dragon-station-chain-bracelet.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 5,
+      "name": "Mens Cotton Jacket",
+      "category": "Men's Clothing",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/mens-cotton-jacket.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 4,
+      "name": "Mens Casual Premium Slim Fit T-Shirts ",
+      "category": "Men's Clothing",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/mens-casual-premium-slim-fit-t-shirts.jpg",
+      "is_resolved": true
+    },
+    {
+      "id": 3,
+      "name": "Fjallraven - Foldsack No. 1 Backpack, Fits 15 Laptops",
+      "category": "Men's Clothing",
+      "old_status": "HTTP_404",
+      "current_image_url": "/product-media/catalog/fjallraven-foldsack-no-1-backpack-fits-15-laptops.jpg",
+      "is_resolved": true
+    }
+  ]
+}

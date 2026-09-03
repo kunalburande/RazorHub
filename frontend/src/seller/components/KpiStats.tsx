@@ -50,7 +50,7 @@ const KpiStats = ({ products }: KpiStatsProps) => {
     {
       id: "catalog-value",
       title: t("kpi.catalogValue", "Catalog Value"),
-      value: `₹${totalCatalogValue.toLocaleString("en-US")}`,
+      value: `₹${totalCatalogValue.toLocaleString("en-IN")}`,
       subtitle: t("kpi.catalogValueSub", "Total inventory worth"),
       icon: (
         <svg
@@ -96,7 +96,7 @@ const KpiStats = ({ products }: KpiStatsProps) => {
     {
       id: "avg-price",
       title: t("kpi.averagePrice", "Average Price"),
-      value: `₹${averagePrice.toLocaleString("en-US")}`,
+      value: `₹${averagePrice.toLocaleString("en-IN")}`,
       subtitle: t("kpi.averagePriceSub", "Per product item"),
       icon: (
         <svg

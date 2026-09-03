@@ -390,24 +390,10 @@ const AnalyticsCharts = ({ products }: AnalyticsChartsProps) => {
 
         {/* Controls */}
         <div className="flex max-w-full flex-wrap items-center gap-2 sm:gap-3">
-          {/* Global Demo Mode Toggle */}
-          <div className="flex shrink-0 items-center gap-x-2 rounded-xl border border-gray-200/50 bg-gray-100/80 px-3 py-1.5 text-xs font-medium transition-all dark:border-slate-700/50 dark:bg-slate-800/80">
-            <span className="flex items-center gap-1.5 font-semibold text-gray-700 select-none dark:text-slate-300">
-              <span
-                className={`h-2 w-2 rounded-full transition-colors ${
-                  demoMode
-                    ? "animate-pulse bg-amber-500"
-                    : "bg-gray-400 dark:bg-slate-500"
-                }`}
-              />
-              {t("analytics.demoMode", "Demo Mode")}
-            </span>
-            <Toggle
-              checked={demoMode}
-              onChange={setDemoMode}
-              size="sm"
-              label="Toggle demo mode"
-            />
+          {/* Live Sync Badge */}
+          <div className="flex shrink-0 items-center gap-x-2 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-600 dark:text-emerald-400">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+            <span>Live Data Sync</span>
           </div>
 
           {/* Tabs */}
@@ -555,7 +541,7 @@ const AnalyticsCharts = ({ products }: AnalyticsChartsProps) => {
 
             {/* Finance Chart */}
             <div className="lg:col-span-2">
-              <GoogleFinanceChart />
+              <GoogleFinanceChart products={activeProducts} totalCatalogWorth={totalCatalogWorth} />
             </div>
           </div>
 
@@ -858,7 +844,7 @@ const AnalyticsCharts = ({ products }: AnalyticsChartsProps) => {
                         {t("analytics.combinedValue", "Combined Value:")}
                       </span>
                       <span className="font-bold text-emerald-600 dark:text-emerald-400">
-                        ${tier.totalValue.toLocaleString("en-US")}
+                        ₹{tier.totalValue.toLocaleString("en-IN")}
                       </span>
                     </div>
                     <div className="flex justify-between">
@@ -866,7 +852,7 @@ const AnalyticsCharts = ({ products }: AnalyticsChartsProps) => {
                         {t("analytics.avgPrice", "Avg. Price:")}
                       </span>
                       <span className="font-semibold text-gray-800 dark:text-slate-200">
-                        ${avgPrice.toLocaleString("en-US")}
+                        ₹{avgPrice.toLocaleString("en-IN")}
                       </span>
                     </div>
                     <div className="flex justify-between">

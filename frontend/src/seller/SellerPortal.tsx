@@ -64,8 +64,8 @@ import { productValidation } from"./schema";
 import { getLocalizedText } from"./utils/productUtils";
 import { useAuth } from"../context/AuthContext";
 import { useTheme } from"../context/ThemeContext";
-import ThemeToggle from"../components/ThemeToggle";
-import { apiRequest } from"../lib/api";
+import ThemeToggle from "../components/ThemeToggle";
+import { apiRequest, unwrapList } from"../lib/api";
 import { productImage, type CategoryType, type ProductType } from"../lib/products";
 
 function PlaceholderPage({ title, description }: { title: string, description: string }) {
@@ -360,69 +360,69 @@ export default function SellerPortal() {
  const [isAiOpen, setIsAiOpen] = useState(false);
  const [isLoading, setIsLoading] = useState(true);
 
- // Load real products & categories from Django backend
- useEffect(() => {
- let isMounted = true;
- const fetchCatalog = async () => {
- try {
- setIsLoading(true);
- // 1. Fetch categories from backend
- const apiCats = await apiRequest<CategoryType[]>('/products/categories/').catch(() => []);
- if (isMounted && apiCats && apiCats.length > 0) {
- const mappedCats = apiCats.map((c) => ({
- id: String(c.id),
- name: c.name,
- imageURL: '',
- }));
- setCategoriesList(mappedCats);
- }
+  // Load real products & categories from Django backend
+  useEffect(() => {
+    let isMounted = true;
+    const fetchCatalog = async () => {
+      try {
+        setIsLoading(true);
+        // 1. Fetch categories from backend
+        const catsRes = await apiRequest<any>('/products/categories/').catch(() => []);
+        const apiCats = unwrapList<CategoryType>(catsRes);
+        if (isMounted && apiCats && apiCats.length > 0) {
+          const mappedCats = apiCats.map((c) => ({
+            id: String(c.id),
+            name: c.name,
+            imageURL: '',
+          }));
+          setCategoriesList(mappedCats);
+        }
 
- // 2. Fetch live products from backend
- let apiProds: ProductType[] = [];
- if (token && !token.startsWith('__demo_')) {
- apiProds = await apiRequest<ProductType[]>('/products/?mine=true', { token }).catch(() => []);
- }
- if (!apiProds || apiProds.length === 0) {
- apiProds = await apiRequest<ProductType[]>('/products/').catch(() => []);
- }
+        // 2. Fetch live products from backend scoped to seller's store
+        let apiProds: ProductType[] = [];
+        if (token && !token.startsWith('__demo_')) {
+          const mineRes = await apiRequest<any>('/products/items/?mine=true&page_size=200', { token }).catch(() => []);
+          apiProds = unwrapList<ProductType>(mineRes);
+        } else {
+          const allRes = await apiRequest<any>('/products/items/?page_size=200').catch(() => []);
+          apiProds = unwrapList<ProductType>(allRes);
+        }
 
- if (isMounted && apiProds && apiProds.length > 0) {
- const mappedProds: Product[] = apiProds.map((p) => ({
- id: String(p.id),
- slug: p.slug,
- title: p.name,
- description: p.description,
- imageURL: productImage(p) || p.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
- price: String(Math.round(Number(p.discount_price || p.price))),
- colors: ['#121212', '#2563eb', '#10b981'],
- stock: p.stock ?? 25,
- sku: `SKU-${p.id}`,
- rating: Number(p.rating || p.average_rating || 4.5),
- reviewCount: p.review_count || 100,
- createdAt: new Date().toISOString(),
- category: {
- id: p.category?.id,
- name: p.category?.name || 'General',
- imageURL: '',
- },
- }));
- setProducts(mappedProds);
- } else if (isMounted) {
- setProducts(productList);
- }
- } catch (err) {
- console.warn('Backend load fallback:', err);
- if (isMounted) setProducts(productList);
- } finally {
- if (isMounted) setIsLoading(false);
- }
- };
+        if (isMounted) {
+          const mappedProds: Product[] = apiProds.map((p) => ({
+            id: String(p.id),
+            slug: p.slug,
+            title: p.name,
+            description: p.description,
+            imageURL: productImage(p) || p.image_url || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&w=800&q=80',
+            price: String(Math.round(Number(p.discount_price || p.price))),
+            colors: ['#121212', '#2563eb', '#10b981'],
+            stock: p.stock ?? 25,
+            sku: `SKU-${p.id}`,
+            rating: Number(p.rating || p.average_rating || 4.5),
+            reviewCount: p.review_count || 100,
+            createdAt: new Date().toISOString(),
+            category: {
+              id: p.category?.id,
+              name: p.category?.name || 'General',
+              imageURL: '',
+            },
+          }));
+          setProducts(mappedProds);
+        }
+      } catch (err) {
+        console.warn('Backend load fallback:', err);
+        if (isMounted) setProducts(productList);
+      } finally {
+        if (isMounted) setIsLoading(false);
+      }
+    };
 
- fetchCatalog();
- return () => {
- isMounted = false;
- };
- }, [token]);
+    fetchCatalog();
+    return () => {
+      isMounted = false;
+    };
+  }, [token]);
 
  const [searchQuery, setSearchQuery] = useState("");
  const [filterCategory, setFilterCategory] = useState("all");
@@ -800,10 +800,6 @@ export default function SellerPortal() {
 
         {/* Action Buttons & Badges */}
         <div className="flex items-center gap-2.5 sm:gap-3">
-          <div className="hidden lg:flex px-2.5 py-1 text-[11px] font-mono bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-400 border border-green-200 dark:border-green-800 rounded-full font-bold">
-            Razorpay Live
-          </div>
-
           <Button
             className="bg-blue-600 text-white hover:bg-blue-700 shadow-sm text-xs font-bold py-2 px-3 sm:px-4 rounded-xl transition-all active:scale-95 flex items-center"
             onClick={openAddModal}

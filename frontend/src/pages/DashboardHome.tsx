@@ -1,35 +1,58 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Navigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useCart } from '../context/CartContext';
 import { useTranslation } from '../i18n/LocaleContext';
+import { apiRequest, unwrapList } from '../lib/api';
+import { formatPrice, price, productImage, PRODUCT_FALLBACK_IMAGE } from '../lib/products';
+import type { ProductType } from '../lib/products';
+import ProductCard from '../components/ProductCard';
 import {
   AlertTriangle,
+  ArrowRight,
   Bell,
+  Box,
   Check,
+  CheckCircle2,
+  ChevronRight,
+  Clock,
   CreditCard,
-  Database,
   Download,
+  Eye,
+  Heart,
+  HelpCircle,
   KeyRound,
   LayoutDashboard,
   Loader2,
   Lock,
+  LogOut,
   Mail,
+  MapPin,
   Moon,
+  Package,
   Palette,
+  Phone,
+  Plus,
+  RefreshCw,
+  RotateCcw,
   Save,
+  Search,
+  Shield,
   ShieldCheck,
   ShoppingBag,
   Sliders,
   Smartphone,
   Sparkles,
+  Star,
   Sun,
   Trash2,
+  Truck,
   Upload,
-  User,
+  User as UserIcon,
   X,
+  Zap,
 } from 'lucide-react';
-import type { Role } from '../context/AuthContext';
 
 const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
@@ -48,1056 +71,925 @@ export default function DashboardHome() {
   return <CustomerDashboard />;
 }
 
+interface OrderItem {
+  id: number;
+  product: ProductType;
+  quantity: number;
+  price: string;
+}
+
+interface CustomerOrder {
+  id: number;
+  order_number?: string;
+  total_price: string;
+  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  created_at: string;
+  items: OrderItem[];
+  shipping_address?: any;
+}
+
+interface SavedAddress {
+  id: number;
+  full_name?: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  postal_code: string;
+  country?: string;
+  phone?: string;
+  is_default?: boolean;
+}
+
 function CustomerDashboard() {
-  const { user, isDemo, requestDeleteAccount, confirmDeleteAccount } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { user, token, logout, requestDeleteAccount, confirmDeleteAccount } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { addToCart, totalCount: cartTotalCount } = useCart();
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const [activeTab, setActiveTab] = useState<
-    'profile' | 'appearance' | 'preferences' | 'notifications' | 'security' | 'data'
-  >('profile');
+  // Single active section
+  const [activeSection, setActiveSection] = useState<
+    'overview' | 'orders' | 'wishlist' | 'addresses' | 'profile' | 'preferences'
+  >('overview');
 
+  // Live Database States
+  const [orders, setOrders] = useState<CustomerOrder[]>([]);
+  const [wishlist, setWishlist] = useState<ProductType[]>([]);
+  const [addresses, setAddresses] = useState<SavedAddress[]>([]);
+  const [recommendations, setRecommendations] = useState<ProductType[]>([]);
+  const [loading, setLoading] = useState(true);
   const [toast, setToast] = useState<{ type: 'success' | 'error' | 'info'; title: string; message: string } | null>(null);
 
-  function showToast(type: 'success' | 'error' | 'info', title: string, message: string) {
-    setToast({ type, title, message });
-    setTimeout(() => setToast(null), 4000);
-  }
+  // Profile Form State
+  const [profileForm, setProfileForm] = useState({
+    firstName: user?.first_name || '',
+    lastName: user?.last_name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  });
 
-  // Profile State
   const [avatarUrl, setAvatarUrl] = useState<string>(() => {
-    return localStorage.getItem('razorhub_user_avatar') || PRESET_AVATARS[0];
+    return user?.avatar || localStorage.getItem('razorhub_user_avatar') || PRESET_AVATARS[0];
   });
-  const getUserDisplayName = () => {
-    if (!user) return 'Rahul Sharma';
-    const combined = [user.first_name, user.last_name].filter(Boolean).join(' ').trim();
-    return combined || user.username || 'Rahul Sharma';
-  };
 
-  const [profile, setProfile] = useState({
-    fullName: getUserDisplayName(),
-    email: user?.email || 'rahul.sharma@example.com',
-    roleDescription: 'Verified Customer',
-    phone: user?.phone || '+91 98765 43210',
+  // Address Form Modal
+  const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [addressForm, setAddressForm] = useState({
+    fullName: '',
+    phone: '',
+    addressLine1: '',
+    addressLine2: '',
     city: 'Bengaluru',
-    pincode: '560001',
-    bio: 'Customer at RazorHub. Prefer fast delivery and evening drop-offs.',
+    state: 'Karnataka',
+    postalCode: '560001',
+    isDefault: false,
   });
 
-  useEffect(() => {
-    if (user) {
-      setProfile((prev) => ({
-        ...prev,
-        fullName: [user.first_name, user.last_name].filter(Boolean).join(' ').trim() || user.username || prev.fullName,
-        email: user.email || prev.email,
-        phone: user.phone || prev.phone,
-      }));
-    }
-  }, [user]);
-
-  // Appearance & Theme State
-  const [accentColor, setAccentColor] = useState<'blue' | 'indigo' | 'emerald' | 'amber' | 'rose'>('blue');
-  const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
-
-  // Preferences State
-  const [preferences, setPreferences] = useState({
-    currency: 'INR (₹)',
-    language: 'English',
-    defaultPayment: 'UPI (GPay / PhonePe / Paytm)',
-    oneClickCheckout: true,
-    saveAddresses: true,
-  });
-
-  // Notifications State
-  const [notifications, setNotifications] = useState({
-    orderUpdates: true,
-    whatsappAlerts: true,
-    priceDropAlerts: true,
-    promotions: false,
-    newsletter: false,
-  });
-
-  // Security State
+  // Password State
   const [passwords, setPasswords] = useState({
     current: '',
     newPass: '',
     confirmPass: '',
   });
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
 
-  // Delete Modal State
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteStep, setDeleteStep] = useState<'confirm' | 'otp'>('confirm');
-  const [otpCode, setOtpCode] = useState('');
-  const [deleteError, setDeleteError] = useState('');
-  const [deleteLoading, setDeleteLoading] = useState(false);
+  function showToast(type: 'success' | 'error' | 'info', title: string, message: string) {
+    setToast({ type, title, message });
+    setTimeout(() => setToast(null), 3500);
+  }
 
-  // Avatar Upload Handler
-  const handleAvatarUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      showToast('error', 'File Too Large', 'Please select an image under 5MB.');
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const dataUrl = event.target?.result as string;
-      setAvatarUrl(dataUrl);
-      localStorage.setItem('razorhub_user_avatar', dataUrl);
-      showToast('success', 'Avatar Updated', 'Your profile picture has been updated.');
-    };
-    reader.readAsDataURL(file);
-    if (fileInputRef.current) fileInputRef.current.value = '';
-  };
-
-  const selectPresetAvatar = (url: string) => {
-    setAvatarUrl(url);
-    localStorage.setItem('razorhub_user_avatar', url);
-    showToast('success', 'Avatar Selected', 'Profile avatar changed successfully.');
-  };
-
-  const handleSaveProfile = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('razorhub_customer_profile', JSON.stringify(profile));
-    showToast('success', 'Changes Saved', 'Your profile details have been saved successfully.');
-  };
-
-  const handleSavePreferences = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('razorhub_customer_preferences', JSON.stringify(preferences));
-    showToast('success', 'Preferences Saved', 'Shopping and checkout preferences updated.');
-  };
-
-  const handleSaveNotifications = (e: React.FormEvent) => {
-    e.preventDefault();
-    localStorage.setItem('razorhub_customer_notifications', JSON.stringify(notifications));
-    showToast('success', 'Notifications Updated', 'Your notification preferences have been saved.');
-  };
-
-  const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!passwords.newPass || passwords.newPass !== passwords.confirmPass) {
-      showToast('error', 'Password Mismatch', 'New password and confirm password must match.');
-      return;
-    }
-    setPasswords({ current: '', newPass: '', confirmPass: '' });
-    showToast('success', 'Password Updated', 'Your account password has been changed.');
-  };
-
-  const handleExportData = (format: 'json' | 'csv') => {
-    const exportData = {
-      user: { email: user?.email, name: profile.fullName, phone: profile.phone },
-      profile,
-      preferences,
-      notifications,
-      exportedAt: new Date().toISOString(),
-    };
-
-    let blob: Blob;
-    let filename: string;
-
-    if (format === 'json') {
-      blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-      filename = `razorhub-account-${Date.now()}.json`;
-    } else {
-      const csvRows = [
-        ['Field', 'Value'],
-        ['Full Name', profile.fullName],
-        ['Email', profile.email],
-        ['Phone', profile.phone],
-        ['City', profile.city],
-        ['Pincode', profile.pincode],
-        ['Currency', preferences.currency],
-      ];
-      const csvContent = csvRows.map((e) => e.join(',')).join('\n');
-      blob = new Blob([csvContent], { type: 'text/csv' });
-      filename = `razorhub-account-${Date.now()}.csv`;
-    }
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    showToast('success', 'Export Complete', `Downloaded account details as ${format.toUpperCase()}.`);
-  };
-
-  async function handleRequestOTP() {
-    setDeleteError('');
-    setDeleteLoading(true);
+  // Load all live customer data from NeonDB
+  const loadCustomerData = async () => {
+    setLoading(true);
     try {
-      await requestDeleteAccount();
-      setDeleteStep('otp');
-    } catch (err: any) {
-      setDeleteError(err.message || 'Failed to send verification code.');
+      const [ordersRes, wishlistRes, addrRes, recRes] = await Promise.all([
+        apiRequest<any>('/orders/', { token }).catch(() => []),
+        apiRequest<any>('/wishlist/', { token }).catch(() => []),
+        apiRequest<any>('/auth/addresses/', { token }).catch(() => []),
+        apiRequest<any>('/products/personalized/').catch(() => []),
+      ]);
+
+      setOrders(unwrapList<CustomerOrder>(ordersRes));
+      setWishlist(unwrapList<ProductType>(wishlistRes));
+      setAddresses(unwrapList<SavedAddress>(addrRes));
+      setRecommendations(unwrapList<ProductType>(recRes).slice(0, 4));
+    } catch (err) {
+      console.warn('Customer data load notice:', err);
     } finally {
-      setDeleteLoading(false);
+      setLoading(false);
     }
-  }
+  };
 
-  async function handleConfirmDelete() {
-    if (!otpCode.trim()) {
-      setDeleteError('Please enter the verification code.');
-      return;
+  useEffect(() => {
+    loadCustomerData();
+  }, [token]);
+
+  useEffect(() => {
+    if (user) {
+      setProfileForm({
+        firstName: user.first_name || '',
+        lastName: user.last_name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+      });
+      if (user.avatar) setAvatarUrl(user.avatar);
     }
-    setDeleteError('');
-    setDeleteLoading(true);
+  }, [user]);
+
+  // Handle Profile Save
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
     try {
-      await confirmDeleteAccount(otpCode.trim());
+      if (user?.id) {
+        await apiRequest(`/auth/users/${user.id}/`, {
+          token,
+          method: 'PATCH',
+          body: JSON.stringify({
+            first_name: profileForm.firstName,
+            last_name: profileForm.lastName,
+            email: profileForm.email,
+            phone: profileForm.phone,
+            avatar: avatarUrl,
+          }),
+        });
+      }
+      showToast('success', 'Profile Updated', 'Your profile details have been synced with the database.');
     } catch (err: any) {
-      setDeleteError(err.message || 'Invalid or expired verification code.');
-      setDeleteLoading(false);
+      showToast('error', 'Update Failed', err?.message || 'Could not save profile details.');
     }
-  }
+  };
 
-  function closeDeleteModal() {
-    setShowDeleteModal(false);
-    setDeleteStep('confirm');
-    setOtpCode('');
-    setDeleteError('');
-    setDeleteLoading(false);
-  }
+  // Handle Add Address
+  const handleSaveAddress = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      await apiRequest('/auth/addresses/', {
+        token,
+        method: 'POST',
+        body: JSON.stringify({
+          address_line1: addressForm.addressLine1,
+          address_line2: addressForm.addressLine2,
+          city: addressForm.city,
+          state: addressForm.state,
+          postal_code: addressForm.postalCode,
+          country: 'India',
+        }),
+      });
+      showToast('success', 'Address Saved', 'New delivery address added successfully.');
+      setIsAddressModalOpen(false);
+      setAddressForm({
+        fullName: '',
+        phone: '',
+        addressLine1: '',
+        addressLine2: '',
+        city: 'Bengaluru',
+        state: 'Karnataka',
+        postalCode: '560001',
+        isDefault: false,
+      });
+      loadCustomerData();
+    } catch (err: any) {
+      showToast('error', 'Failed', err?.message || 'Could not save address.');
+    }
+  };
 
-  const tabs = [
-    { id: 'profile' as const, label: 'Profile Settings', icon: User },
-    { id: 'appearance' as const, label: 'Appearance', icon: Palette },
-    { id: 'preferences' as const, label: 'Preferences', icon: LayoutDashboard },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'security' as const, label: 'Security & Auth', icon: ShieldCheck },
-    { id: 'data' as const, label: 'Data & Export', icon: Database },
+  // Handle Delete Address
+  const handleDeleteAddress = async (id: number) => {
+    try {
+      await apiRequest(`/auth/addresses/${id}/`, {
+        token,
+        method: 'DELETE',
+      });
+      showToast('info', 'Address Removed', 'Address removed from your address book.');
+      loadCustomerData();
+    } catch (err: any) {
+      showToast('error', 'Failed', err?.message || 'Could not delete address.');
+    }
+  };
+
+  // Handle Remove from Wishlist
+  const handleRemoveWishlist = async (id: number) => {
+    try {
+      await apiRequest(`/wishlist/${id}/`, {
+        token,
+        method: 'DELETE',
+      });
+      setWishlist((prev) => prev.filter((p) => p.id !== id));
+      showToast('info', 'Wishlist Updated', 'Item removed from your wishlist.');
+    } catch (err: any) {
+      showToast('error', 'Failed', 'Could not remove wishlist item.');
+    }
+  };
+
+  // Navigation Items
+  const navTabs = [
+    { id: 'overview' as const, label: 'Overview', icon: LayoutDashboard, badge: null },
+    { id: 'orders' as const, label: 'My Orders', icon: Package, badge: orders.length > 0 ? String(orders.length) : null },
+    { id: 'wishlist' as const, label: 'Wishlist', icon: Heart, badge: wishlist.length > 0 ? String(wishlist.length) : null },
+    { id: 'addresses' as const, label: 'Delivery Addresses', icon: MapPin, badge: addresses.length > 0 ? String(addresses.length) : null },
+    { id: 'profile' as const, label: 'Profile & Security', icon: UserIcon, badge: null },
+    { id: 'preferences' as const, label: 'Settings', icon: Sliders, badge: null },
   ];
 
+  const displayName = [profileForm.firstName, profileForm.lastName].filter(Boolean).join(' ') || user?.email?.split('@')[0] || 'Customer';
+
   return (
-    <div className="space-y-6 pb-12">
-      {/* Toast feedback */}
+    <div className="min-h-screen bg-zinc-50/50 dark:bg-zinc-950 pb-16 transition-colors duration-300">
+      {/* Toast Notification */}
       {toast && (
-        <div
-          className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 shadow-xl backdrop-blur-md transition-all anim-fade-in-up ${
-            toast.type === 'error'
-              ? 'border-red-200 bg-red-500/90 text-white'
-              : 'border-blue-200 bg-blue-600/95 text-white'
-          }`}
-        >
-          <Sparkles className="h-5 w-5 shrink-0" />
+        <div className="fixed right-6 top-6 z-50 flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-3 text-xs font-semibold text-emerald-600 shadow-xl backdrop-blur-md dark:text-emerald-400 animate-in fade-in">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
           <div>
-            <p className="text-sm font-bold leading-none">{toast.title}</p>
-            <p className="text-xs opacity-90 mt-0.5">{toast.message}</p>
+            <p className="font-bold">{toast.title}</p>
+            <p className="text-[11px] opacity-90">{toast.message}</p>
           </div>
         </div>
       )}
 
-      {/* ── Top Header (Image 1 Style) ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-border/60">
-        <div>
-          <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-primary flex items-center gap-2.5">
-            <span className="p-2 rounded-xl bg-blue-500/10 text-accent">
-              <Sliders className="h-6 w-6" />
-            </span>
-            Dashboard Settings
-          </h1>
-          <p className="mt-1 text-sm text-secondary">
-            Manage your account credentials, dark aesthetics, notifications, and data exports.
-          </p>
-        </div>
-        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-blue-500/10 text-accent border border-blue-500/20 self-start sm:self-center shadow-xs">
-          <Sparkles className="h-3.5 w-3.5" />
-          Customer Hub v2.4
+      {/* ── Customer Top Profile Hero ── */}
+      <div className="border-b border-border bg-surface px-4 py-8 sm:px-6 lg:px-8 shadow-xs">
+        <div className="mx-auto max-w-7xl flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="relative group">
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="h-18 w-18 rounded-2xl object-cover border-2 border-accent shadow-md"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSection('profile');
+                  fileInputRef.current?.click();
+                }}
+                className="absolute -bottom-1 -right-1 h-6 w-6 rounded-full bg-accent text-white flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                title="Change Photo"
+              >
+                <Upload className="h-3 w-3" />
+              </button>
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl sm:text-2xl font-black tracking-tight text-primary">
+                  {displayName}
+                </h1>
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                  <Star className="h-3 w-3 fill-amber-500" />
+                  Gold Member
+                </span>
+              </div>
+              <p className="text-xs text-secondary mt-0.5">{user?.email || 'customer@razorhub.in'}</p>
+            </div>
+          </div>
+
+          {/* Quick KPI Cards */}
+          <div className="grid grid-cols-3 gap-3 sm:gap-4">
+            <button
+              onClick={() => setActiveSection('orders')}
+              className="flex flex-col items-center justify-center rounded-xl border border-border bg-background/60 p-3 text-center transition-all hover:border-accent hover:bg-accent/5"
+            >
+              <Package className="h-4 w-4 text-accent mb-1" />
+              <span className="text-base font-black text-primary">{orders.length}</span>
+              <span className="text-[10px] font-semibold text-secondary uppercase">Orders</span>
+            </button>
+
+            <button
+              onClick={() => setActiveSection('wishlist')}
+              className="flex flex-col items-center justify-center rounded-xl border border-border bg-background/60 p-3 text-center transition-all hover:border-accent hover:bg-accent/5"
+            >
+              <Heart className="h-4 w-4 text-rose-500 mb-1" />
+              <span className="text-base font-black text-primary">{wishlist.length}</span>
+              <span className="text-[10px] font-semibold text-secondary uppercase">Wishlist</span>
+            </button>
+
+            <Link
+              to="/cart"
+              className="flex flex-col items-center justify-center rounded-xl border border-border bg-background/60 p-3 text-center transition-all hover:border-accent hover:bg-accent/5"
+            >
+              <ShoppingBag className="h-4 w-4 text-emerald-500 mb-1" />
+              <span className="text-base font-black text-primary">{cartTotalCount}</span>
+              <span className="text-[10px] font-semibold text-secondary uppercase">In Cart</span>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {isDemo && (
-        <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 text-xs font-semibold text-accent flex items-center gap-2.5">
-          <Sparkles className="h-4 w-4 shrink-0" />
-          <span>Demo mode active: You can explore and test all settings. Changes will reset on page reload.</span>
-        </div>
-      )}
+      {/* ── Main Unified Dashboard Layout ── */}
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-8 items-start">
+          
+          {/* ── Single Unified Left Navigation ── */}
+          <aside className="rounded-2xl border border-border bg-surface p-3 shadow-xs space-y-1 lg:sticky lg:top-24">
+            {navTabs.map((tab) => {
+              const Icon = tab.icon;
+              const isActive = activeSection === tab.id;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setActiveSection(tab.id)}
+                  className={`w-full flex items-center justify-between px-3.5 py-3 rounded-xl text-xs font-bold transition-all text-left ${
+                    isActive
+                      ? 'bg-accent text-white shadow-md shadow-accent/20'
+                      : 'text-secondary hover:bg-muted/60 hover:text-primary'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-secondary'}`} />
+                    <span>{tab.label}</span>
+                  </div>
+                  {tab.badge && (
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${isActive ? 'bg-white/20 text-white' : 'bg-muted text-secondary'}`}>
+                      {tab.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
 
-      {/* ── Main Tabbed Layout (Image 1 Style) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* ── Left Navigation Sidebar ── */}
-        <div className="lg:col-span-1 rounded-2xl border border-border bg-surface p-2.5 shadow-sm space-y-1.5">
-          {tabs.map((tab) => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
+            <div className="pt-3 border-t border-border mt-3">
               <button
-                key={tab.id}
                 type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full flex items-center gap-3 px-3.5 py-3 rounded-xl text-sm font-bold transition-all text-left ${
-                  isActive
-                    ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 text-white shadow-md shadow-blue-500/20'
-                    : 'text-secondary hover:bg-muted/60 hover:text-primary'
-                }`}
+                onClick={logout}
+                className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold text-red-600 dark:text-red-400 hover:bg-red-500/10 transition-colors"
               >
-                <Icon className={`h-4 w-4 shrink-0 ${isActive ? 'text-white' : 'text-secondary'}`} />
-                <span>{tab.label}</span>
+                <LogOut className="h-4 w-4" />
+                <span>Sign Out</span>
               </button>
-            );
-          })}
-        </div>
+            </div>
+          </aside>
 
-        {/* ── Right Content Panel ── */}
-        <div className="lg:col-span-3 rounded-2xl border border-border bg-surface p-6 sm:p-8 shadow-sm">
-          {/* TAB 1: Profile Settings */}
-          {activeTab === 'profile' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-black text-primary">Profile Information</h2>
-                <p className="text-sm text-secondary mt-1">
-                  Update your public profile details and personal shopper persona.
-                </p>
-              </div>
+          {/* ── Main Active Section Content Panel ── */}
+          <main className="space-y-6">
 
-              {/* Profile Photo & Avatar Section (Image 1 Style) */}
-              <div className="rounded-xl border border-border/80 bg-background/50 p-5 mb-6">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-secondary mb-4">
-                  Profile Photo &amp; Avatar
-                </h3>
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                  <div className="relative group shrink-0">
-                    <img
-                      src={avatarUrl}
-                      alt="User Avatar"
-                      className="h-20 w-20 rounded-full object-cover border-2 border-accent shadow-md"
-                    />
+            {/* SECTION 1: OVERVIEW */}
+            {activeSection === 'overview' && (
+              <div className="space-y-6 animate-in fade-in">
+                {/* Welcome & Status Banner */}
+                <div className="rounded-2xl border border-border bg-gradient-to-r from-accent/10 via-surface to-surface p-6 sm:p-8 shadow-xs">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-accent">Customer Dashboard Hub</span>
+                      <h2 className="text-xl sm:text-2xl font-black text-primary mt-1">Welcome back, {displayName}!</h2>
+                      <p className="text-xs text-secondary mt-1 max-w-xl">
+                        Track live orders, manage saved delivery locations, browse your curated wishlist, and enjoy instant express checkout.
+                      </p>
+                    </div>
+                    <Link
+                      to="/products"
+                      className="inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-90 transition-all self-start sm:self-auto"
+                    >
+                      <ShoppingBag className="h-4 w-4" />
+                      Shop Catalog
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Recent Orders Preview */}
+                <div className="rounded-2xl border border-border bg-surface p-6 shadow-xs">
+                  <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Package className="h-4 w-4 text-accent" />
+                      <h3 className="text-sm font-bold text-primary">Recent Orders ({orders.length})</h3>
+                    </div>
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="absolute bottom-0 right-0 h-7 w-7 rounded-full bg-accent text-white flex items-center justify-center shadow-md hover:scale-110 transition-transform"
-                      title="Upload custom photo"
+                      onClick={() => setActiveSection('orders')}
+                      className="text-xs font-bold text-accent hover:underline flex items-center gap-1"
                     >
-                      <Upload className="h-3.5 w-3.5" />
+                      View All <ChevronRight className="h-3.5 w-3.5" />
                     </button>
                   </div>
 
-                  <div className="flex-1 text-center sm:text-left space-y-3">
+                  {orders.length > 0 ? (
+                    <div className="divide-y divide-border/60">
+                      {orders.slice(0, 3).map((order) => (
+                        <div key={order.id} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-bold text-xs text-primary">Order #{order.id}</span>
+                              <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 capitalize">
+                                {order.status}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-secondary mt-1">
+                              Placed on {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <span className="text-sm font-black text-primary">
+                              ₹{Number(order.total_price).toLocaleString('en-IN')}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => setActiveSection('orders')}
+                              className="px-3 py-1.5 rounded-lg border border-border bg-background hover:bg-muted text-xs font-semibold text-primary"
+                            >
+                              Details
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="py-8 text-center text-secondary text-xs">
+                      <p>No orders placed yet. Explore our trending products to get started!</p>
+                      <Link to="/products" className="mt-3 inline-block font-bold text-accent hover:underline">
+                        Explore Catalog →
+                      </Link>
+                    </div>
+                  )}
+                </div>
+
+                {/* Personalized Shopper Recommendations */}
+                {recommendations.length > 0 && (
+                  <div className="rounded-2xl border border-border bg-surface p-6 shadow-xs">
+                    <div className="flex items-center justify-between border-b border-border pb-4 mb-4">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-amber-500" />
+                        <h3 className="text-sm font-bold text-primary">Recommended For You</h3>
+                      </div>
+                      <Link to="/products" className="text-xs font-bold text-accent hover:underline">
+                        Browse More
+                      </Link>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {recommendations.map((prod) => (
+                        <ProductCard key={prod.slug} product={prod} compact />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECTION 2: MY ORDERS & TRACKING */}
+            {activeSection === 'orders' && (
+              <div className="rounded-2xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-border pb-4">
+                  <div>
+                    <h2 className="text-lg font-black text-primary">My Orders &amp; Live Tracking</h2>
+                    <p className="text-xs text-secondary mt-0.5">View full order receipts, shipment stages, and return eligibility.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadCustomerData}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background text-xs font-semibold text-secondary hover:text-primary"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </button>
+                </div>
+
+                {orders.length > 0 ? (
+                  <div className="space-y-6">
+                    {orders.map((order) => (
+                      <div key={order.id} className="rounded-xl border border-border bg-background/50 p-5 shadow-xs space-y-4">
+                        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 pb-3">
+                          <div>
+                            <span className="text-xs font-bold text-primary">Order ID: #{order.id}</span>
+                            <span className="text-xs text-secondary ml-3">
+                              {new Date(order.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 capitalize">
+                              ● {order.status}
+                            </span>
+                            <span className="text-sm font-black text-primary">
+                              ₹{Number(order.total_price).toLocaleString('en-IN')}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Shipment Tracking Progress Stepper */}
+                        <div className="py-2">
+                          <div className="flex items-center justify-between text-[11px] font-bold text-secondary mb-2">
+                            <span className={order.status ? 'text-accent font-black' : ''}>1. Placed</span>
+                            <span className={['processing', 'shipped', 'delivered'].includes(order.status) ? 'text-accent font-black' : ''}>2. Processing</span>
+                            <span className={['shipped', 'delivered'].includes(order.status) ? 'text-accent font-black' : ''}>3. Shipped</span>
+                            <span className={order.status === 'delivered' ? 'text-emerald-600 dark:text-emerald-400 font-black' : ''}>4. Delivered</span>
+                          </div>
+                          <div className="h-2 w-full rounded-full bg-muted overflow-hidden">
+                            <div
+                              className="h-full bg-accent transition-all duration-500 rounded-full"
+                              style={{
+                                width: order.status === 'delivered' ? '100%' : order.status === 'shipped' ? '75%' : order.status === 'processing' ? '50%' : '25%',
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Order Items */}
+                        <div className="space-y-2 pt-2">
+                          {order.items?.map((item) => (
+                            <div key={item.id} className="flex items-center justify-between gap-4 py-2 border-t border-border/40">
+                              <div className="flex items-center gap-3">
+                                <img
+                                  src={productImage(item.product) || PRODUCT_FALLBACK_IMAGE}
+                                  alt={item.product?.name || 'Product'}
+                                  className="h-12 w-12 rounded-lg object-cover"
+                                />
+                                <div>
+                                  <p className="text-xs font-bold text-primary line-clamp-1">{item.product?.name || 'Item'}</p>
+                                  <p className="text-[11px] text-secondary">Qty: {item.quantity} × ₹{Number(item.price).toLocaleString('en-IN')}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => addToCart(item.product, 1)}
+                                className="px-3 py-1.5 rounded-lg bg-accent/10 hover:bg-accent hover:text-white text-accent text-xs font-bold transition-colors"
+                              >
+                                Buy Again
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-secondary">
+                    <Package className="h-10 w-10 text-muted mx-auto mb-3" />
+                    <h3 className="text-sm font-bold text-primary">No orders placed yet</h3>
+                    <p className="text-xs text-secondary mt-1">When you order from RazorHub, your items and tracking updates will appear here in real-time.</p>
+                    <Link
+                      to="/products"
+                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white shadow-md"
+                    >
+                      Start Shopping
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECTION 3: MY WISHLIST */}
+            {activeSection === 'wishlist' && (
+              <div className="rounded-2xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-border pb-4">
+                  <div>
+                    <h2 className="text-lg font-black text-primary">My Saved Wishlist ({wishlist.length})</h2>
+                    <p className="text-xs text-secondary mt-0.5">Products you saved for later. Move them to cart anytime with 1-click.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={loadCustomerData}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-border bg-background text-xs font-semibold text-secondary hover:text-primary"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Refresh
+                  </button>
+                </div>
+
+                {wishlist.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                    {wishlist.map((prod) => (
+                      <div key={prod.id} className="rounded-xl border border-border bg-background p-4 flex flex-col justify-between gap-3 group">
+                        <div className="relative aspect-[4/3] rounded-lg overflow-hidden bg-muted">
+                          <img
+                            src={productImage(prod)}
+                            alt={prod.name}
+                            className="h-full w-full object-cover object-center group-hover:scale-105 transition-transform"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveWishlist(prod.id)}
+                            className="absolute top-2 right-2 h-7 w-7 rounded-full bg-white/90 dark:bg-zinc-900/90 text-red-500 flex items-center justify-center shadow-md hover:scale-110 transition-transform"
+                            title="Remove from wishlist"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-accent">{prod.category?.name || 'General'}</p>
+                          <h4 className="text-xs font-bold text-primary line-clamp-1 mt-0.5">{prod.name}</h4>
+                          <p className="text-sm font-black text-primary mt-1">{formatPrice(price(prod))}</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            addToCart(prod, 1);
+                            showToast('success', 'Moved to Cart', `Added ${prod.name} to cart.`);
+                          }}
+                          className="w-full flex items-center justify-center gap-2 rounded-xl bg-accent px-3 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90 transition-all"
+                        >
+                          <ShoppingBag className="h-3.5 w-3.5" /> Move to Cart
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-12 text-center text-secondary">
+                    <Heart className="h-10 w-10 text-muted mx-auto mb-3" />
+                    <h3 className="text-sm font-bold text-primary">Your wishlist is empty</h3>
+                    <p className="text-xs text-secondary mt-1">Explore our product catalog and click the heart icon on any product to save it here.</p>
+                    <Link
+                      to="/products"
+                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white shadow-md"
+                    >
+                      Explore Products
+                    </Link>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECTION 4: SAVED ADDRESSES */}
+            {activeSection === 'addresses' && (
+              <div className="rounded-2xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in">
+                <div className="flex items-center justify-between border-b border-border pb-4">
+                  <div>
+                    <h2 className="text-lg font-black text-primary">Saved Delivery Addresses ({addresses.length})</h2>
+                    <p className="text-xs text-secondary mt-0.5">Manage residential and work addresses for fast doorstep delivery.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsAddressModalOpen(true)}
+                    className="flex items-center gap-2 rounded-xl bg-accent px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:opacity-90"
+                  >
+                    <Plus className="h-3.5 w-3.5" />
+                    Add Address
+                  </button>
+                </div>
+
+                {addresses.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {addresses.map((addr) => (
+                      <div key={addr.id} className="rounded-xl border border-border bg-background p-5 space-y-2 relative">
+                        <div className="flex items-center justify-between">
+                          <span className="flex items-center gap-1.5 text-xs font-bold text-primary">
+                            <MapPin className="h-4 w-4 text-accent" />
+                            Delivery Address #{addr.id}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteAddress(addr.id)}
+                            className="text-secondary hover:text-red-500 p-1"
+                            title="Delete address"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <p className="text-xs text-primary font-medium">{addr.address_line1}</p>
+                        {addr.address_line2 && <p className="text-xs text-secondary">{addr.address_line2}</p>}
+                        <p className="text-xs text-secondary">{addr.city}, {addr.state} - {addr.postal_code}</p>
+                        <p className="text-xs font-semibold text-accent">{addr.country || 'India'}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-10 text-center text-secondary">
+                    <MapPin className="h-10 w-10 text-muted mx-auto mb-3" />
+                    <h3 className="text-sm font-bold text-primary">No saved addresses yet</h3>
+                    <p className="text-xs text-secondary mt-1">Add your home or office address for fast 1-click checkout.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddressModalOpen(true)}
+                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-accent px-4 py-2 text-xs font-bold text-white shadow-md"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add Delivery Address
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* SECTION 5: PROFILE & SECURITY */}
+            {activeSection === 'profile' && (
+              <div className="rounded-2xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in">
+                <div className="border-b border-border pb-4">
+                  <h2 className="text-lg font-black text-primary">Profile &amp; Account Settings</h2>
+                  <p className="text-xs text-secondary mt-0.5">Manage your personal information, phone number, and avatar in the database.</p>
+                </div>
+
+                {/* Avatar Selection */}
+                <div className="rounded-xl border border-border bg-background p-5 flex flex-col sm:flex-row items-center gap-6">
+                  <div className="relative group shrink-0">
+                    <img
+                      src={avatarUrl}
+                      alt="Avatar"
+                      className="h-20 w-20 rounded-2xl object-cover border-2 border-accent shadow-md"
+                    />
                     <input
                       ref={fileInputRef}
                       type="file"
                       accept="image/*"
                       className="hidden"
-                      onChange={handleAvatarUpload}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="px-4 py-2 rounded-xl border border-border bg-surface hover:bg-muted font-bold text-xs text-primary transition-colors shadow-xs"
-                    >
-                      Upload Custom Photo
-                    </button>
-                    <p className="text-xs text-secondary">
-                      Upload any JPG, PNG or WebP image file from your device.
-                    </p>
-
-                    <div>
-                      <span className="block text-[10px] font-bold uppercase tracking-wider text-secondary mb-2">
-                        OR PICK A PRESET AVATAR:
-                      </span>
-                      <div className="flex items-center gap-2 justify-center sm:justify-start flex-wrap">
-                        {PRESET_AVATARS.map((preset, idx) => (
-                          <button
-                            key={idx}
-                            type="button"
-                            onClick={() => selectPresetAvatar(preset)}
-                            className={`relative h-9 w-9 rounded-full overflow-hidden border-2 transition-all hover:scale-110 ${
-                              avatarUrl === preset ? 'border-accent ring-2 ring-accent/30 scale-105' : 'border-transparent opacity-80 hover:opacity-100'
-                            }`}
-                          >
-                            <img src={preset} alt={`Preset ${idx + 1}`} className="h-full w-full object-cover" />
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Profile Form */}
-              <form onSubmit={handleSaveProfile} className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Full Name
-                    </label>
-                    <input
-                      type="text"
-                      value={profile.fullName}
-                      onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-all"
-                      placeholder="Your full name"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Email Address
-                    </label>
-                    <input
-                      type="email"
-                      value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-all"
-                      placeholder="you@example.com"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Phone Number
-                    </label>
-                    <input
-                      type="tel"
-                      value={profile.phone}
-                      onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-all"
-                      placeholder="+91 98765 43210"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Role Description
-                    </label>
-                    <input
-                      type="text"
-                      value={profile.roleDescription}
-                      disabled
-                      className="w-full rounded-xl border border-border bg-muted/40 px-4 py-3 text-sm text-secondary font-medium cursor-not-allowed"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Delivery City
-                    </label>
-                    <input
-                      type="text"
-                      value={profile.city}
-                      onChange={(e) => setProfile({ ...profile, city: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-all"
-                      placeholder="Bengaluru"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Delivery Pincode
-                    </label>
-                    <input
-                      type="text"
-                      value={profile.pincode}
-                      onChange={(e) => setProfile({ ...profile, pincode: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-all"
-                      placeholder="560001"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                    Bio / Delivery Notes
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={profile.bio}
-                    onChange={(e) => setProfile({ ...profile, bio: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent transition-all"
-                    placeholder="Provide any delivery landmarks or special instructions..."
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:opacity-95 transition-opacity"
-                  >
-                    <Save className="h-4 w-4" />
-                    Save Changes
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* TAB 2: Appearance */}
-          {activeTab === 'appearance' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-primary">Appearance &amp; Theme</h2>
-                <p className="text-sm text-secondary mt-1">
-                  Customize the visual styling, theme mode, and interface density of your portal.
-                </p>
-              </div>
-
-              {/* Theme Selector */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-3">
-                  Theme Mode
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    type="button"
-                    onClick={() => setTheme('light')}
-                    className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                      theme === 'light'
-                        ? 'border-accent bg-blue-50/40 dark:bg-blue-950/20'
-                        : 'border-border bg-background hover:border-border/80'
-                    }`}
-                  >
-                    <div className="h-10 w-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center shrink-0">
-                      <Sun className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-primary">Light Aesthetics</p>
-                      <p className="text-xs text-secondary">Clean, crisp high-contrast day theme</p>
-                    </div>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setTheme('dark')}
-                    className={`flex items-center gap-3 p-4 rounded-xl border-2 text-left transition-all ${
-                      theme === 'dark'
-                        ? 'border-accent bg-blue-50/40 dark:bg-blue-950/20'
-                        : 'border-border bg-background hover:border-border/80'
-                    }`}
-                  >
-                    <div className="h-10 w-10 rounded-xl bg-indigo-900/60 text-indigo-300 flex items-center justify-center shrink-0">
-                      <Moon className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-primary">Dark Aesthetics</p>
-                      <p className="text-xs text-secondary">Deep slate dark mode for night shopping</p>
-                    </div>
-                  </button>
-                </div>
-              </div>
-
-              {/* Accent Color Selection */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-3">
-                  Accent Color Palette
-                </label>
-                <div className="flex items-center gap-3 flex-wrap">
-                  {[
-                    { id: 'blue' as const, bg: 'bg-blue-600', name: 'Electric Blue' },
-                    { id: 'indigo' as const, bg: 'bg-indigo-600', name: 'Indigo Glow' },
-                    { id: 'emerald' as const, bg: 'bg-emerald-600', name: 'Emerald Green' },
-                    { id: 'amber' as const, bg: 'bg-amber-600', name: 'Amber Gold' },
-                    { id: 'rose' as const, bg: 'bg-rose-600', name: 'Rose Crimson' },
-                  ].map((color) => (
-                    <button
-                      key={color.id}
-                      type="button"
-                      onClick={() => {
-                        setAccentColor(color.id);
-                        showToast('info', 'Accent Changed', `Applied ${color.name} palette.`);
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) {
+                          const reader = new FileReader();
+                          reader.onload = (ev) => {
+                            const url = ev.target?.result as string;
+                            setAvatarUrl(url);
+                            localStorage.setItem('razorhub_user_avatar', url);
+                          };
+                          reader.readAsDataURL(file);
+                        }
                       }}
-                      className={`flex items-center gap-2 px-3.5 py-2 rounded-xl border text-xs font-bold transition-all ${
-                        accentColor === color.id
-                          ? 'border-accent bg-accent/10 text-primary ring-2 ring-accent/20'
-                          : 'border-border bg-background text-secondary hover:text-primary'
-                      }`}
-                    >
-                      <span className={`h-3.5 w-3.5 rounded-full ${color.bg}`} />
-                      {color.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Density Selection */}
-              <div>
-                <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-3">
-                  Display Density
-                </label>
-                <div className="grid grid-cols-2 gap-4 max-w-md">
-                  <button
-                    type="button"
-                    onClick={() => setDensity('comfortable')}
-                    className={`p-3.5 rounded-xl border text-xs font-bold text-center transition-all ${
-                      density === 'comfortable' ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-background text-secondary'
-                    }`}
-                  >
-                    Comfortable (Standard)
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setDensity('compact')}
-                    className={`p-3.5 rounded-xl border text-xs font-bold text-center transition-all ${
-                      density === 'compact' ? 'border-accent bg-accent/10 text-accent' : 'border-border bg-background text-secondary'
-                    }`}
-                  >
-                    Compact (High Info)
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 3: Preferences */}
-          {activeTab === 'preferences' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-black text-primary">Shopping Preferences</h2>
-                <p className="text-sm text-secondary mt-1">
-                  Configure default regional currency, preferred payment methods, and express checkout.
-                </p>
-              </div>
-
-              <form onSubmit={handleSavePreferences} className="space-y-5">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Primary Currency
-                    </label>
-                    <select
-                      value={preferences.currency}
-                      onChange={(e) => setPreferences({ ...preferences, currency: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none"
-                    >
-                      <option value="INR (₹)">INR (₹) — Indian Rupee</option>
-                      <option value="USD ($)">USD ($) — US Dollar</option>
-                      <option value="NPR (रू)">NPR (रू) — Nepalese Rupee</option>
-                    </select>
+                    />
                   </div>
-
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Preferred Language
-                    </label>
-                    <select
-                      value={preferences.language}
-                      onChange={(e) => setPreferences({ ...preferences, language: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none"
-                    >
-                      <option value="English">English</option>
-                      <option value="Hindi">हिंदी (Hindi)</option>
-                      <option value="Nepali">नेपाली (Nepali)</option>
-                    </select>
+                  <div className="space-y-2 text-center sm:text-left">
+                    <span className="text-xs font-bold uppercase tracking-wider text-secondary">Choose Preset Avatar:</span>
+                    <div className="flex flex-wrap gap-2 justify-center sm:justify-start">
+                      {PRESET_AVATARS.map((p, i) => (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() => {
+                            setAvatarUrl(p);
+                            localStorage.setItem('razorhub_user_avatar', p);
+                          }}
+                          className={`h-9 w-9 rounded-full overflow-hidden border-2 transition-all ${avatarUrl === p ? 'border-accent ring-2 ring-accent/30' : 'border-transparent'}`}
+                        >
+                          <img src={p} alt={`Avatar ${i + 1}`} className="h-full w-full object-cover" />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                    Default Payment Method
-                  </label>
-                  <select
-                    value={preferences.defaultPayment}
-                    onChange={(e) => setPreferences({ ...preferences, defaultPayment: e.target.value })}
-                    className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none"
-                  >
-                    <option value="UPI (GPay / PhonePe / Paytm)">UPI (GPay / PhonePe / Paytm / QR)</option>
-                    <option value="Credit / Debit Card">Credit / Debit Card (Visa / Mastercard / RuPay)</option>
-                    <option value="Cash on Delivery">Cash on Delivery (Pay at Doorstep)</option>
-                  </select>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  <label className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-background cursor-pointer hover:bg-muted/40 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={preferences.oneClickCheckout}
-                      onChange={(e) => setPreferences({ ...preferences, oneClickCheckout: e.target.checked })}
-                      className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-primary">Enable Express 1-Click Checkout</p>
-                      <p className="text-xs text-secondary">Auto-select default address and UPI payment during checkout.</p>
-                    </div>
-                  </label>
-
-                  <label className="flex items-center gap-3 p-3.5 rounded-xl border border-border bg-background cursor-pointer hover:bg-muted/40 transition-colors">
-                    <input
-                      type="checkbox"
-                      checked={preferences.saveAddresses}
-                      onChange={(e) => setPreferences({ ...preferences, saveAddresses: e.target.checked })}
-                      className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
-                    />
-                    <div>
-                      <p className="text-sm font-bold text-primary">Auto-save addresses to address book</p>
-                      <p className="text-xs text-secondary">Save new shipping addresses entered during past orders.</p>
-                    </div>
-                  </label>
-                </div>
-
-                <div className="pt-2">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:opacity-95 transition-opacity"
-                  >
-                    <Save className="h-4 w-4" />
-                    Save Preferences
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* TAB 4: Notifications */}
-          {activeTab === 'notifications' && (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-black text-primary">Notification Settings</h2>
-                <p className="text-sm text-secondary mt-1">
-                  Manage communication channels, order alerts, and promotional newsletters.
-                </p>
-              </div>
-
-              <form onSubmit={handleSaveNotifications} className="space-y-4">
-                {[
-                  {
-                    key: 'orderUpdates' as const,
-                    title: 'Email Order Confirmations & Invoices',
-                    desc: 'Receive immediate email receipts, invoices, and delivery timeline tracking.',
-                  },
-                  {
-                    key: 'whatsappAlerts' as const,
-                    title: 'WhatsApp & SMS Dispatch Updates',
-                    desc: 'Get real-time tracking links on WhatsApp when items are shipped from sellers.',
-                  },
-                  {
-                    key: 'priceDropAlerts' as const,
-                    title: 'Wishlist Price Drops & Restock Alerts',
-                    desc: 'Instant notifications when saved items go on sale or return to stock.',
-                  },
-                  {
-                    key: 'promotions' as const,
-                    title: 'Exclusive Flash Deals & Seasonal Offers',
-                    desc: 'Occasional curated promotions from nearby neighborhood sellers.',
-                  },
-                ].map((item) => (
-                  <label
-                    key={item.key}
-                    className="flex items-start gap-3.5 p-4 rounded-xl border border-border bg-background cursor-pointer hover:bg-muted/40 transition-colors"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={notifications[item.key]}
-                      onChange={(e) => setNotifications({ ...notifications, [item.key]: e.target.checked })}
-                      className="mt-1 h-4 w-4 rounded border-border text-accent focus:ring-accent"
-                    />
-                    <div className="flex-1">
-                      <p className="text-sm font-bold text-primary">{item.title}</p>
-                      <p className="text-xs text-secondary mt-0.5">{item.desc}</p>
-                    </div>
-                  </label>
-                ))}
-
-                <div className="pt-3">
-                  <button
-                    type="submit"
-                    className="inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-600 px-6 py-3.5 text-sm font-bold text-white shadow-md shadow-blue-500/20 hover:opacity-95 transition-opacity"
-                  >
-                    <Save className="h-4 w-4" />
-                    Save Notification Rules
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
-
-          {/* TAB 5: Security & Auth */}
-          {activeTab === 'security' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-primary">Security &amp; Authentication</h2>
-                <p className="text-sm text-secondary mt-1">
-                  Manage your account credentials, password changes, and two-factor authentication.
-                </p>
-              </div>
-
-              {/* Password Change Card */}
-              <div className="rounded-xl border border-border p-5 bg-background/50">
-                <h3 className="text-sm font-bold text-primary mb-4 flex items-center gap-2">
-                  <KeyRound className="h-4 w-4 text-accent" />
-                  Change Password
-                </h3>
-                <form onSubmit={handlePasswordChange} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                      Current Password
-                    </label>
-                    <input
-                      type="password"
-                      value={passwords.current}
-                      onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
-                      className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none"
-                      placeholder="••••••••"
-                      required
-                    />
-                  </div>
+                {/* Profile Form */}
+                <form onSubmit={handleSaveProfile} className="space-y-4">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                        New Password
-                      </label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1">First Name</label>
                       <input
-                        type="password"
-                        value={passwords.newPass}
-                        onChange={(e) => setPasswords({ ...passwords, newPass: e.target.value })}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none"
-                        placeholder="••••••••"
-                        required
-                        minLength={6}
+                        type="text"
+                        value={profileForm.firstName}
+                        onChange={(e) => setProfileForm({ ...profileForm, firstName: e.target.value })}
+                        className="w-full h-11 rounded-xl border border-border bg-background px-3 text-xs font-semibold text-primary outline-none focus:border-accent"
+                        placeholder="First name"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1.5">
-                        Confirm New Password
-                      </label>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1">Last Name</label>
                       <input
-                        type="password"
-                        value={passwords.confirmPass}
-                        onChange={(e) => setPasswords({ ...passwords, confirmPass: e.target.value })}
-                        className="w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-primary font-medium focus:border-accent focus:outline-none"
-                        placeholder="••••••••"
-                        required
-                        minLength={6}
+                        type="text"
+                        value={profileForm.lastName}
+                        onChange={(e) => setProfileForm({ ...profileForm, lastName: e.target.value })}
+                        className="w-full h-11 rounded-xl border border-border bg-background px-3 text-xs font-semibold text-primary outline-none focus:border-accent"
+                        placeholder="Last name"
                       />
                     </div>
                   </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1">Email Address</label>
+                      <input
+                        type="email"
+                        value={profileForm.email}
+                        onChange={(e) => setProfileForm({ ...profileForm, email: e.target.value })}
+                        className="w-full h-11 rounded-xl border border-border bg-background px-3 text-xs font-semibold text-primary outline-none focus:border-accent"
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold uppercase tracking-wider text-secondary mb-1">Phone Number</label>
+                      <input
+                        type="tel"
+                        value={profileForm.phone}
+                        onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
+                        className="w-full h-11 rounded-xl border border-border bg-background px-3 text-xs font-semibold text-primary outline-none focus:border-accent"
+                        placeholder="+91 98765 43210"
+                      />
+                    </div>
+                  </div>
+
                   <button
                     type="submit"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl border border-border bg-surface hover:bg-muted font-bold text-xs text-primary transition-colors"
+                    className="flex items-center gap-2 rounded-xl bg-accent px-5 py-2.5 text-xs font-bold text-white shadow-md hover:opacity-90"
                   >
-                    Update Password
+                    <Save className="h-4 w-4" /> Save Profile Details
                   </button>
                 </form>
               </div>
+            )}
 
-              {/* 2FA Toggle Card */}
-              <div className="rounded-xl border border-border p-5 bg-background/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                    <ShieldCheck className="h-4 w-4 text-green-500" />
-                    Two-Factor Authentication (2FA)
-                  </h3>
-                  <p className="text-xs text-secondary mt-1">
-                    Require a one-time verification code (OTP) sent to your email on every login.
-                  </p>
+            {/* SECTION 6: PREFERENCES & SETTINGS */}
+            {activeSection === 'preferences' && (
+              <div className="rounded-2xl border border-border bg-surface p-6 sm:p-8 shadow-xs space-y-6 animate-in fade-in">
+                <div className="border-b border-border pb-4">
+                  <h2 className="text-lg font-black text-primary">Preferences &amp; Application Theme</h2>
+                  <p className="text-xs text-secondary mt-0.5">Customize your shopping experience, notifications, and dark aesthetics.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTwoFactorEnabled(!twoFactorEnabled);
-                    showToast('success', '2FA Setting Updated', `Two-Factor Auth is now ${!twoFactorEnabled ? 'Enabled' : 'Disabled'}.`);
-                  }}
-                  className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
-                    twoFactorEnabled ? 'bg-green-600 text-white' : 'border border-border bg-surface text-secondary hover:text-primary'
-                  }`}
-                >
-                  {twoFactorEnabled ? '2FA Enabled' : 'Enable 2FA'}
-                </button>
-              </div>
 
-              {/* Active Session info */}
-              <div className="rounded-xl border border-border p-5 bg-background/50">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-secondary mb-3">
-                  Current Session
-                </h3>
-                <div className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2.5">
-                    <Smartphone className="h-4 w-4 text-accent" />
+                <div className="space-y-4">
+                  {/* Theme Switcher */}
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
                     <div>
-                      <p className="font-bold text-primary">Web Browser Session</p>
-                      <p className="text-secondary">{user?.email}</p>
+                      <span className="text-xs font-bold text-primary">Theme Appearance</span>
+                      <p className="text-[11px] text-secondary">Switch between dark mode and light theme</p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={toggleTheme}
+                      className="flex items-center gap-2 rounded-xl border border-border bg-surface px-3 py-1.5 text-xs font-bold text-primary shadow-xs"
+                    >
+                      {theme === 'dark' ? <Moon className="h-4 w-4 text-accent" /> : <Sun className="h-4 w-4 text-amber-500" />}
+                      <span className="capitalize">{theme} Theme</span>
+                    </button>
                   </div>
-                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-500/10 text-green-600 font-bold text-[10px]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                    Active Now
-                  </span>
+
+                  {/* Currency */}
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
+                    <div>
+                      <span className="text-xs font-bold text-primary">Currency</span>
+                      <p className="text-[11px] text-secondary">Default pricing denomination</p>
+                    </div>
+                    <span className="text-xs font-bold text-accent">Indian Rupee (₹ INR)</span>
+                  </div>
+
+                  {/* Notifications */}
+                  <div className="flex items-center justify-between rounded-xl border border-border bg-background p-4">
+                    <div>
+                      <span className="text-xs font-bold text-primary">Order SMS &amp; WhatsApp Updates</span>
+                      <p className="text-[11px] text-secondary">Receive real-time shipment updates on your phone</p>
+                    </div>
+                    <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      Enabled
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
-          {/* TAB 6: Data & Export */}
-          {activeTab === 'data' && (
-            <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-black text-primary">Data &amp; Account Privacy</h2>
-                <p className="text-sm text-secondary mt-1">
-                  Download copies of your order records, export saved details, or request permanent deletion.
-                </p>
-              </div>
-
-              {/* Export Data Cards */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="rounded-xl border border-border bg-background/50 p-5 space-y-3">
-                  <div className="h-9 w-9 rounded-xl bg-blue-500/10 text-accent flex items-center justify-center">
-                    <Download className="h-4 w-4" />
-                  </div>
-                  <h3 className="font-bold text-sm text-primary">Export Account Data (JSON)</h3>
-                  <p className="text-xs text-secondary leading-relaxed">
-                    Download complete structured JSON file with your profile, preferences, and activity settings.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleExportData('json')}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-surface hover:bg-muted font-bold text-xs text-primary transition-colors"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download JSON
-                  </button>
-                </div>
-
-                <div className="rounded-xl border border-border bg-background/50 p-5 space-y-3">
-                  <div className="h-9 w-9 rounded-xl bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
-                    <Database className="h-4 w-4" />
-                  </div>
-                  <h3 className="font-bold text-sm text-primary">Export Summary (CSV)</h3>
-                  <p className="text-xs text-secondary leading-relaxed">
-                    Download spreadsheet-ready CSV summary containing your profile details and preferences.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleExportData('csv')}
-                    className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-border bg-surface hover:bg-muted font-bold text-xs text-primary transition-colors"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    Download CSV
-                  </button>
-                </div>
-              </div>
-
-              {/* Danger Zone */}
-              {!isDemo && (
-                <div className="rounded-xl border border-red-500/30 bg-red-500/5 p-5 mt-6 space-y-3">
-                  <div className="flex items-center gap-2 text-red-600 font-bold text-sm">
-                    <AlertTriangle className="h-4 w-4" />
-                    Danger Zone
-                  </div>
-                  <p className="text-xs text-secondary leading-relaxed">
-                    Once you delete your account, all personal profile records, order histories, and saved preferences are permanently erased.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setShowDeleteModal(true)}
-                    className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-xl transition-colors text-xs shadow-sm"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Delete Account
-                  </button>
-                </div>
-              )}
-            </div>
-          )}
+          </main>
         </div>
       </div>
 
-      {/* Delete Account Modal (OTP Flow) */}
-      {showDeleteModal && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 px-4 py-6 backdrop-blur-sm"
-          role="dialog"
-          aria-modal="true"
-        >
-          <div className="anim-scale-in w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl">
-            <div className="flex items-start justify-between gap-4 mb-4">
-              <div className="flex items-center gap-3">
-                <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-red-100 dark:bg-red-950 text-red-600">
-                  <AlertTriangle className="h-5 w-5" />
-                </span>
-                <h3 className="text-lg font-bold text-primary">Delete Account</h3>
-              </div>
+      {/* ── Add Address Modal ── */}
+      {isAddressModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 animate-in fade-in">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-surface p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <h3 className="text-base font-bold text-primary">Add Delivery Address</h3>
               <button
                 type="button"
-                onClick={closeDeleteModal}
-                className="h-8 w-8 rounded-lg border border-border text-secondary hover:text-primary flex items-center justify-center"
+                onClick={() => setIsAddressModalOpen(false)}
+                className="rounded-lg p-1 text-secondary hover:bg-muted"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
-            {deleteStep === 'confirm' ? (
-              <>
-                <p className="text-sm text-secondary leading-relaxed mb-2">
-                  You are about to permanently delete your account <strong className="text-primary">{user?.email}</strong>.
-                </p>
-                <p className="text-xs text-secondary leading-relaxed mb-6">
-                  A 6-digit verification code will be sent to your email to confirm this action.
-                </p>
-
-                {deleteError && (
-                  <p className="mb-4 rounded-xl bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-700 dark:text-red-300 border border-red-200">
-                    {deleteError}
-                  </p>
-                )}
-
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={closeDeleteModal}
-                    className="flex-1 rounded-xl border border-border bg-background py-2.5 text-xs font-bold text-secondary hover:text-primary"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleRequestOTP}
-                    disabled={deleteLoading}
-                    className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Send Code
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <p className="text-sm text-secondary leading-relaxed mb-4">
-                  A 6-digit code has been sent to <strong className="text-primary">{user?.email}</strong>. Enter it below to confirm permanent deletion.
-                </p>
-
-                {deleteError && (
-                  <p className="mb-4 rounded-xl bg-red-50 dark:bg-red-950/40 p-3 text-xs text-red-700 dark:text-red-300 border border-red-200">
-                    {deleteError}
-                  </p>
-                )}
-
+            <form onSubmit={handleSaveAddress} className="space-y-3">
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-secondary mb-1">Street Address / Flat / Building</label>
                 <input
                   type="text"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ''))}
-                  placeholder="••••••"
-                  className="mb-6 w-full rounded-xl border border-border bg-background px-4 py-3.5 text-center text-2xl font-mono tracking-[0.5em] outline-none focus:border-red-500"
-                  autoFocus
+                  required
+                  value={addressForm.addressLine1}
+                  onChange={(e) => setAddressForm({ ...addressForm, addressLine1: e.target.value })}
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs text-primary outline-none focus:border-accent"
+                  placeholder="e.g. 402, Lotus Towers, MG Road"
                 />
+              </div>
 
-                <div className="flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => { setDeleteStep('confirm'); setOtpCode(''); setDeleteError(''); }}
-                    className="flex-1 rounded-xl border border-border bg-background py-2.5 text-xs font-bold text-secondary hover:text-primary"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleConfirmDelete}
-                    disabled={deleteLoading || otpCode.length < 6}
-                    className="flex-1 rounded-xl bg-red-600 py-2.5 text-xs font-bold text-white hover:bg-red-700 disabled:opacity-60 flex items-center justify-center gap-2"
-                  >
-                    {deleteLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                    Delete Permanently
-                  </button>
+              <div>
+                <label className="block text-[11px] font-bold uppercase text-secondary mb-1">Area / Landmark (Optional)</label>
+                <input
+                  type="text"
+                  value={addressForm.addressLine2}
+                  onChange={(e) => setAddressForm({ ...addressForm, addressLine2: e.target.value })}
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs text-primary outline-none focus:border-accent"
+                  placeholder="Near City Mall"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-secondary mb-1">City</label>
+                  <input
+                    type="text"
+                    required
+                    value={addressForm.city}
+                    onChange={(e) => setAddressForm({ ...addressForm, city: e.target.value })}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs text-primary outline-none focus:border-accent"
+                  />
                 </div>
-              </>
-            )}
+                <div>
+                  <label className="block text-[11px] font-bold uppercase text-secondary mb-1">Pincode</label>
+                  <input
+                    type="text"
+                    required
+                    value={addressForm.postalCode}
+                    onChange={(e) => setAddressForm({ ...addressForm, postalCode: e.target.value })}
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs text-primary outline-none focus:border-accent"
+                  />
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="w-full h-11 mt-2 rounded-xl bg-accent text-xs font-bold text-white shadow-md hover:opacity-90"
+              >
+                Save Delivery Address
+              </button>
+            </form>
           </div>
         </div>
       )}

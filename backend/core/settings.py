@@ -96,6 +96,7 @@ INSTALLED_APPS = [
     'crm',
     'intelligence',
     'agent_api',
+    'agent_runtime',
 ]
 
 MIDDLEWARE = [
@@ -131,13 +132,22 @@ WSGI_APPLICATION = 'core.wsgi.application'
 
 
 # Database
-DATABASES = {
-    'default': dj_database_url.config(
-        default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
-        conn_max_age=600,
-        conn_health_checks=True,
-    )
-}
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
+    }
+else:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
+    }
+
 
 # Cache
 CACHES = {

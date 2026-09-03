@@ -54,9 +54,19 @@ class IsAdminUserRole(permissions.BasePermission):
         return bool(request.user and request.user.is_authenticated and request.user.effective_role == "admin")
 
 
+from rest_framework.pagination import PageNumberPagination
+
+
+class UserPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 500
+
+
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all().order_by("-date_joined")
     serializer_class = UserSerializer
+    pagination_class = UserPagination
     permission_classes = [IsAdminUserRole]
 
 
