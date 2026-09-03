@@ -45,7 +45,13 @@ const AgentExecutionsPage = lazy(() => import('./pages/agents/AgentExecutionsPag
 const AgentAuditPage = lazy(() => import('./pages/agents/AgentAuditPage'));
 const RefundSpikeAnalyzerPage = lazy(() => import('./pages/agents/RefundSpikeAnalyzerPage'));
 const AgentAuthorizationsPage = lazy(() => import('./pages/agents/AgentAuthorizationsPage'));
+const AgentConnectorsPage = lazy(() => import('./pages/agents/AgentConnectorsPage'));
+const CommunicationCenterPage = lazy(() => import('./pages/CommunicationCenterPage'));
+const RiskEnginePage = lazy(() => import('./pages/RiskEnginePage'));
 const BusinessBankingPage = lazy(() => import('./pages/banking/BusinessBankingPage'));
+
+
+
 
 
 
@@ -104,7 +110,10 @@ function App() {
                       <Route path="/dashboard" element={<DashboardHome />} />
                       <Route path="/dashboard/orders" element={<OrdersPage mode="customer" />} />
                       <Route path="/dashboard/tickets" element={<CRMPage />} />
+                      <Route path="/notifications" element={<CommunicationCenterPage />} />
+                      <Route path="/dashboard/notifications" element={<CommunicationCenterPage />} />
                     </Route>
+
 
                     {/* Full Seller Suite */}
                     <Route
@@ -123,14 +132,21 @@ function App() {
                       <Route path="/agents/create" element={<AgentBuilder />} />
                       <Route path="/agents/refund-spike-analyzer" element={<RefundSpikeAnalyzerPage />} />
                       <Route path="/agents/authorizations" element={<AgentAuthorizationsPage />} />
+                      <Route path="/agents/connectors" element={<AgentConnectorsPage />} />
+                      <Route path="/risk-engine" element={<RiskEnginePage />} />
                       <Route path="/banking" element={<BusinessBankingPage />} />
+
+
                       <Route path="/agents/:id" element={<AgentDetails />} />
 
 
                       <Route path="/agents/:id/configuration" element={<AgentConfigurationPage />} />
                       <Route path="/agents/:id/executions" element={<AgentExecutionsPage />} />
+                      <Route path="/agents/executions" element={<AgentExecutionsPage />} />
+                      <Route path="/agents/observability" element={<AgentExecutionsPage />} />
                       <Route path="/agents/:id/audit" element={<AgentAuditPage />} />
                     </Route>
+
 
 
                     {/* Admin Portal */}

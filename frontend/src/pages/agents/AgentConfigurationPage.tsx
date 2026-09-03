@@ -11,6 +11,7 @@ import {
   Wrench,
   Sliders,
   Check,
+  Layers,
 } from 'lucide-react';
 import { apiRequest } from '../../lib/api';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +33,7 @@ export default function AgentConfigurationPage() {
   const [approvalMode, setApprovalMode] = useState('AUTO');
   const [riskLevel, setRiskLevel] = useState('LOW');
   const [selectedToolIds, setSelectedToolIds] = useState<string[]>([]);
+  const [selectedConnectorIds, setSelectedConnectorIds] = useState<string[]>([]);
 
   // Policy Fields
   const [policyId, setPolicyId] = useState<string | null>(null);
@@ -45,17 +47,19 @@ export default function AgentConfigurationPage() {
   const [requireHumanApproval, setRequireHumanApproval] = useState(false);
   const [requireDoubleConfirmation, setRequireDoubleConfirmation] = useState(false);
 
-  // Available Tools
+  // Available Tools & Connectors
   const [availableTools, setAvailableTools] = useState<any[]>([]);
+  const [availableConnectors, setAvailableConnectors] = useState<any[]>([]);
 
   useEffect(() => {
     async function loadData() {
       if (!id) return;
       setLoading(true);
       try {
-        const [agentData, toolsData] = await Promise.all([
+        const [agentData, toolsData, connectorsData] = await Promise.all([
           apiRequest<any>(`/agent-runtime/agents/${id}/`, { token }),
           apiRequest<any>('/agent-runtime/tools/', { token }),
+          apiRequest<any>('/agent-runtime/connectors/', { token }),
         ]);
 
         setName(agentData.name || '');
@@ -64,6 +68,7 @@ export default function AgentConfigurationPage() {
         setApprovalMode(agentData.approval_mode || 'AUTO');
         setRiskLevel(agentData.risk_level || 'LOW');
         setSelectedToolIds(agentData.tools?.map((t: any) => t.id) || []);
+        setSelectedConnectorIds(agentData.connectors?.map((c: any) => c.id) || []);
 
         const gov = agentData.governance_policy;
         if (gov) {
@@ -81,6 +86,9 @@ export default function AgentConfigurationPage() {
 
         const toolsList = Array.isArray(toolsData) ? toolsData : toolsData.results || [];
         setAvailableTools(toolsList);
+
+        const connList = Array.isArray(connectorsData) ? connectorsData : connectorsData.results || [];
+        setAvailableConnectors(connList);
       } catch (err: any) {
         setErrorMsg(err.message || 'Failed to load agent configuration.');
       } finally {
@@ -93,6 +101,12 @@ export default function AgentConfigurationPage() {
   const toggleTool = (toolId: string) => {
     setSelectedToolIds((prev) =>
       prev.includes(toolId) ? prev.filter((t) => t !== toolId) : [...prev, toolId]
+    );
+  };
+
+  const toggleConnector = (connId: string) => {
+    setSelectedConnectorIds((prev) =>
+      prev.includes(connId) ? prev.filter((c) => c !== connId) : [...prev, connId]
     );
   };
 
@@ -109,16 +123,25 @@ export default function AgentConfigurationPage() {
         token,
         method: 'PATCH',
         body: JSON.stringify({
-          name: name.trim(),
-          description: description.trim(),
-          system_prompt: systemPrompt.trim(),
+          name,
+          description,
+          system_prompt: systemPrompt,
           approval_mode: approvalMode,
           risk_level: riskLevel,
           tool_ids: selectedToolIds,
+          connector_ids: selectedConnectorIds,
         }),
       });
 
-      // 2. Update Governance Policy
+      // 2. Update Authorized Connectors explicitly
+      await apiRequest(`/agent-runtime/agents/${id}/update_connectors/`, {
+        token,
+        method: 'POST',
+        body: JSON.stringify({ connector_ids: selectedConnectorIds }),
+      });
+
+      // 3. Update Governance Policy
+
       const policyPayload = {
         agent: id,
         name: `${name.trim()} Policy`,
@@ -327,8 +350,72 @@ export default function AgentConfigurationPage() {
           </div>
         </div>
 
-        {/* Section 3: Spending Policies & Guardrails */}
+        {/* Section 3: Authorized Connectors (Zero-Trust Scoping) */}
         <div className="p-6 sm:p-8 rounded-3xl border border-border/80 bg-surface shadow-xs space-y-5">
+          <div className="border-b border-border pb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-indigo-500" />
+              <div>
+                <h2 className="text-base font-bold text-primary">Authorized Connectors (Zero-Trust Scoping)</h2>
+                <p className="text-xs text-secondary">
+                  By default, agents cannot invoke external systems. Check connectors this agent is authorized to use.
+                </p>
+              </div>
+            </div>
+            <Link
+              to="/agents/connectors"
+              target="_blank"
+              className="text-xs font-bold text-indigo-600 hover:underline"
+            >
+              Open Connectors Hub ↗
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+            {availableConnectors.map((conn) => {
+              const isChecked = selectedConnectorIds.includes(conn.id);
+              return (
+                <div
+                  key={conn.id}
+                  onClick={() => toggleConnector(conn.id)}
+                  className={`p-3.5 rounded-2xl border transition cursor-pointer flex items-start justify-between gap-2 ${
+                    isChecked
+                      ? 'bg-indigo-50/70 dark:bg-indigo-950/30 border-indigo-500/50'
+                      : 'bg-background hover:bg-muted/40 border-border'
+                  }`}
+                >
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-xs text-primary">{conn.name}</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-muted text-secondary">
+                        {conn.connector_type}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-secondary line-clamp-1">{conn.description}</p>
+                    <div className="flex flex-wrap gap-1 pt-1">
+                      {conn.capabilities?.map((cap: any, ci: number) => (
+                        <span key={ci} className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-muted/80 text-primary">
+                          {cap.capability}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                  <div
+                    className={`w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 mt-0.5 ${
+                      isChecked ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-border bg-surface'
+                    }`}
+                  >
+                    {isChecked && <Check className="w-3.5 h-3.5" />}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Section 4: Spending Policies & Guardrails */}
+        <div className="p-6 sm:p-8 rounded-3xl border border-border/80 bg-surface shadow-xs space-y-5">
+
           <div className="border-b border-border pb-3 flex items-center gap-2">
             <Lock className="w-4 h-4 text-indigo-500" />
             <div>

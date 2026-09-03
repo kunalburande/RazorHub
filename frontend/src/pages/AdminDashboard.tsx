@@ -48,6 +48,8 @@ import {
   Zap,
 } from 'lucide-react';
 import HumanApprovalModal from '../components/HumanApprovalModal';
+import AiCommandCenter from '../components/AiCommandCenter';
+
 
 
 interface CRMOverview {
@@ -291,8 +293,12 @@ export default function AdminDashboard() {
             </div>
           </div>
 
+          {/* ── AI-NATIVE COMMAND CENTER ── */}
+          <AiCommandCenter onActionExecuted={loadDashboardData} />
+
           {/* KPI Metrics Grid (Direct from NeonDB) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+
             {/* Total Users */}
             <Link
               to="/admin/users"

@@ -15,8 +15,19 @@ from .models import (
     RefundAnomalyRecord,
     AgentPaymentAuthorization,
     AgentAuthorizationLedger,
+    Connector,
+    ConnectorCapability,
+    ConnectorCredential,
+    ConnectorExecution,
+    CommunicationConsent,
+    CommunicationPreference,
+    CommunicationEvent,
+    FinancialRiskRecord,
 )
 from decimal import Decimal
+
+
+
 
 
 
@@ -51,6 +62,39 @@ class AgentGovernancePolicySerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class ConnectorCapabilitySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConnectorCapability
+        fields = "__all__"
+
+
+class ConnectorCredentialSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = ConnectorCredential
+        fields = ["id", "connector", "name", "auth_type", "is_valid", "last_verified_at", "created_at"]
+
+
+class ConnectorExecutionSerializer(serializers.ModelSerializer):
+    connector_name = serializers.CharField(source="connector.name", read_only=True)
+    agent_name = serializers.CharField(source="agent.name", read_only=True)
+
+    class Meta:
+        model = ConnectorExecution
+        fields = "__all__"
+
+
+class ConnectorSerializer(serializers.ModelSerializer):
+    capabilities = ConnectorCapabilitySerializer(many=True, read_only=True)
+    active_agents_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Connector
+        fields = "__all__"
+
+    def get_active_agents_count(self, obj):
+        return obj.agents.count()
+
+
 class AgentSerializer(serializers.ModelSerializer):
     tools = AgentToolSerializer(many=True, read_only=True)
     tool_ids = serializers.PrimaryKeyRelatedField(
@@ -66,6 +110,14 @@ class AgentSerializer(serializers.ModelSerializer):
         many=True,
         write_only=True,
         source="policies",
+        required=False,
+    )
+    connectors = ConnectorSerializer(many=True, read_only=True)
+    connector_ids = serializers.PrimaryKeyRelatedField(
+        queryset=Connector.objects.all(),
+        many=True,
+        write_only=True,
+        source="connectors",
         required=False,
     )
     triggers = AgentTriggerSerializer(many=True, read_only=True)
@@ -85,12 +137,15 @@ class AgentSerializer(serializers.ModelSerializer):
             "tool_ids",
             "policies",
             "policy_ids",
+            "connectors",
+            "connector_ids",
             "triggers",
             "governance_policy",
             "metadata",
             "created_at",
             "updated_at",
         ]
+
 
 
 
@@ -247,5 +302,123 @@ class AgentPaymentAuthorizationSerializer(serializers.ModelSerializer):
 
     def get_remaining_month(self, obj):
         return float(max(Decimal("0.00"), obj.monthly_limit - obj.used_this_month))
+
+
+class CommunicationConsentSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source="user.email", read_only=True)
+
+    class Meta:
+        model = CommunicationConsent
+        fields = "__all__"
+        read_only_fields = ["user", "granted_at"]
+
+
+class CommunicationPreferenceSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source="user.email", read_only=True)
+
+    class Meta:
+        model = CommunicationPreference
+        fields = "__all__"
+        read_only_fields = ["user", "updated_at"]
+
+
+class CommunicationEventSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    agent_name = serializers.CharField(source="agent.name", read_only=True)
+
+    class Meta:
+        model = CommunicationEvent
+        fields = "__all__"
+
+
+class FinancialRiskRecordSerializer(serializers.ModelSerializer):
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    agent_name = serializers.CharField(source="agent.name", read_only=True)
+
+    class Meta:
+        model = FinancialRiskRecord
+        fields = "__all__"
+
+
+class AgentExecutionStepSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgentExecutionStep
+        fields = [
+            "id",
+            "step_number",
+            "step_type",
+            "status",
+            "input_payload",
+            "output_payload",
+            "duration_ms",
+            "error_detail",
+            "created_at",
+        ]
+
+
+class AgentExecutionSerializer(serializers.ModelSerializer):
+    executionId = serializers.UUIDField(source="execution_id", read_only=True)
+    agentId = serializers.PrimaryKeyRelatedField(source="agent", read_only=True)
+    agent_name = serializers.CharField(source="agent.name", read_only=True)
+    userId = serializers.CharField(source="user_id", read_only=True)
+    timestamp = serializers.DateTimeField(source="started_at", read_only=True)
+    input = serializers.JSONField(source="input_payload", read_only=True)
+    context = serializers.JSONField(source="context_data", read_only=True)
+    toolsSelected = serializers.JSONField(source="tools_selected", read_only=True)
+    toolInputs = serializers.JSONField(source="tool_inputs", read_only=True)
+    policyChecks = serializers.JSONField(source="policy_checks", read_only=True)
+    riskChecks = serializers.JSONField(source="risk_checks", read_only=True)
+    approvalRequest = serializers.JSONField(source="approval_request", read_only=True)
+    approvalResponse = serializers.JSONField(source="approval_response", read_only=True)
+    toolResults = serializers.JSONField(source="tool_results", read_only=True)
+    finalAction = serializers.CharField(source="final_action", read_only=True)
+    error = serializers.CharField(source="error_message", read_only=True)
+    duration = serializers.IntegerField(source="duration_ms", read_only=True)
+    model = serializers.CharField(source="model_name", read_only=True)
+    tokenUsage = serializers.JSONField(source="token_usage", read_only=True)
+    timeline = serializers.JSONField(read_only=True)
+    steps = AgentExecutionStepSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = AgentExecution
+        fields = [
+            "execution_id",
+            "executionId",
+            "agent",
+            "agentId",
+            "agent_name",
+            "user",
+            "userId",
+            "initial_request",
+            "intent",
+            "input",
+            "context",
+            "toolsSelected",
+            "toolInputs",
+            "policyChecks",
+            "riskChecks",
+            "approvalRequest",
+            "approvalResponse",
+            "toolResults",
+            "finalAction",
+            "status",
+            "error",
+            "duration",
+            "duration_ms",
+            "model",
+            "model_name",
+            "tokenUsage",
+            "token_usage",
+            "timeline",
+            "output_response",
+            "error_message",
+            "steps",
+            "timestamp",
+            "started_at",
+            "completed_at",
+        ]
+
+
+
 
 

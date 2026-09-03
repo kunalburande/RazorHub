@@ -22,6 +22,13 @@ from .models import (
     GovernanceDecisionRecord,
     RefundAnomalyRecord,
     AgentPaymentAuthorization,
+    Connector,
+    ConnectorCapability,
+    ConnectorExecution,
+    CommunicationConsent,
+    CommunicationPreference,
+    CommunicationEvent,
+    FinancialRiskRecord,
 )
 from .serializers import (
     AgentSerializer,
@@ -34,7 +41,17 @@ from .serializers import (
     GovernanceDecisionRecordSerializer,
     RefundAnomalyRecordSerializer,
     AgentPaymentAuthorizationSerializer,
+    ConnectorSerializer,
+    ConnectorExecutionSerializer,
+    CommunicationConsentSerializer,
+    CommunicationPreferenceSerializer,
+    CommunicationEventSerializer,
+    FinancialRiskRecordSerializer,
 )
+from .risk import FinancialRiskEngine
+
+
+
 from decimal import Decimal
 from .runtime import AgentRuntime
 
@@ -217,6 +234,20 @@ class AgentViewSet(viewsets.ModelViewSet):
             response.data = AgentSerializer(agent).data
         return response
 
+    @action(detail=True, methods=["post"])
+    def update_connectors(self, request, pk=None):
+        agent = self.get_object()
+        connector_ids = request.data.get("connector_ids", [])
+        connectors_qs = Connector.objects.filter(id__in=connector_ids)
+        agent.connectors.set(connectors_qs)
+        return Response({
+            "status": "UPDATED",
+            "agent_id": str(agent.id),
+            "connected_count": agent.connectors.count(),
+            "connectors": [{"id": str(c.id), "slug": c.slug, "name": c.name} for c in agent.connectors.all()],
+        })
+
+
 
 
 
@@ -234,24 +265,90 @@ class AgentPolicyViewSet(viewsets.ModelViewSet):
 
 class AgentExecutionViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = AgentExecutionSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
 
     def get_queryset(self):
-        qs = AgentExecution.objects.select_related("agent").prefetch_related("steps", "approvals").all()
+        from django.db.models import Q
+        qs = AgentExecution.objects.select_related("agent", "user").prefetch_related("steps", "approvals").all()
         agent_id = self.request.query_params.get("agent")
         if agent_id:
             qs = qs.filter(agent_id=agent_id)
-        return qs
-
+        status_param = self.request.query_params.get("status")
+        if status_param and status_param != "ALL":
+            qs = qs.filter(status=status_param)
+        has_error = self.request.query_params.get("has_error")
+        if has_error and str(has_error).lower() in ["true", "1"]:
+            qs = qs.filter(Q(status="FAILED") | ~Q(error_message=""))
+        return qs.order_by("-started_at")
 
     @action(detail=True, methods=["get"])
     def trace(self, request, pk=None):
         execution = self.get_object()
         return Response({
-            "execution_id": execution.execution_id,
+            "execution_id": str(execution.execution_id),
             "status": execution.status,
             "trace": execution.execution_trace,
         })
+
+    @action(detail=True, methods=["get"])
+    def timeline(self, request, pk=None):
+        execution = self.get_object()
+        return Response({
+            "execution_id": str(execution.execution_id),
+            "status": execution.status,
+            "duration_ms": execution.duration_ms,
+            "timeline": execution.timeline or [],
+        })
+
+    @action(detail=True, methods=["get"], url_path="tool-calls")
+    def tool_calls(self, request, pk=None):
+        execution = self.get_object()
+        from .models import AgentExecutionStep
+        from .serializers import AgentExecutionStepSerializer
+        steps = AgentExecutionStep.objects.filter(execution=execution, step_type="TOOL_EXECUTION").order_by("step_number")
+        return Response({
+            "execution_id": str(execution.execution_id),
+            "tools_selected": execution.tools_selected or [],
+            "tool_inputs": execution.tool_inputs or [],
+            "tool_results": execution.tool_results or [],
+            "steps": AgentExecutionStepSerializer(steps, many=True).data,
+        })
+
+    @action(detail=True, methods=["get"], url_path="policy-decisions")
+    def policy_decisions(self, request, pk=None):
+        execution = self.get_object()
+        return Response({
+            "execution_id": str(execution.execution_id),
+            "policy_checks": execution.policy_checks or [],
+            "risk_checks": execution.risk_checks or {},
+            "approval_request": execution.approval_request or {},
+            "approval_response": execution.approval_response or {},
+        })
+
+    @action(detail=True, methods=["get"])
+    def errors(self, request, pk=None):
+        execution = self.get_object()
+        from .models import AgentExecutionStep
+        from .serializers import AgentExecutionStepSerializer
+        failed_steps = AgentExecutionStep.objects.filter(execution=execution, status="FAILED").order_by("step_number")
+        return Response({
+            "execution_id": str(execution.execution_id),
+            "has_error": bool(execution.error_message or execution.status == "FAILED"),
+            "status": execution.status,
+            "error_message": execution.error_message,
+            "failed_steps": AgentExecutionStepSerializer(failed_steps, many=True).data,
+        })
+
+    @action(detail=True, methods=["post"])
+    def replay(self, request, pk=None):
+        from .observability.replay import ExecutionReplayEngine
+        user = request.user if getattr(request, "user", None) and request.user.is_authenticated else None
+        try:
+            result = ExecutionReplayEngine.replay(execution_id=str(pk), user=user, sandbox=True)
+            return Response(result)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 class AgentApprovalViewSet(viewsets.ModelViewSet):
@@ -900,6 +997,255 @@ class BankingReconciliationView(APIView):
             "discrepancy_amount": 0.00,
             "feed_health": "OPTIMAL",
         })
+
+
+# ── 17. AI-NATIVE COMMAND CENTER VIEWS ───────────────────────────────────────
+class CommandCenterExecuteView(APIView):
+    """
+    POST /api/agent-runtime/command-center/execute/
+    Executes natural-language prompt through deterministic 6-intent engine
+    (QUERY, ANALYZE, ACTION, CREATE_AGENT, REPORT, ESCALATE) and returns
+    structured 4-part transparency output.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        query = request.data.get("query", "").strip()
+        if not query:
+            return Response({"error": "Field 'query' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .command_center import CommandCenterEngine
+        try:
+            res = CommandCenterEngine.execute(query, user=request.user)
+            return Response(res)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class CommandCenterApproveActionView(APIView):
+    """
+    POST /api/agent-runtime/command-center/approve/
+    Executes approved action payload from an approval card.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        action_payload = request.data.get("action_payload")
+        if not action_payload:
+            return Response({"error": "Field 'action_payload' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .command_center import CommandCenterEngine
+        try:
+            res = CommandCenterEngine.execute_approved_action(action_payload, user=request.user)
+            return Response(res)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class ConnectorViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet for managing and inspecting integration connectors and testing capabilities.
+    """
+    queryset = Connector.objects.all()
+    serializer_class = ConnectorSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        from .connectors.registry import ConnectorRegistry
+        ConnectorRegistry.seed_default_connectors()
+        return super().list(request, *args, **kwargs)
+
+    @action(detail=True, methods=["post"])
+    def test_execute(self, request, pk=None):
+        connector = self.get_object()
+        capability = request.data.get("capability", "READ")
+        action = request.data.get("action", "test")
+        params = request.data.get("params", {})
+        agent_id = request.data.get("agent_id")
+
+        from .connectors.registry import ConnectorRegistry
+        try:
+            res = ConnectorRegistry.execute(
+                connector_slug=connector.slug,
+                capability=capability,
+                action=action,
+                params=params,
+                agent_id=agent_id,
+            )
+            return Response({"success": True, "result": res})
+        except Exception as e:
+            return Response({"success": False, "error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+    @action(detail=True, methods=["get"])
+    def executions(self, request, pk=None):
+        connector = self.get_object()
+        serializer = ConnectorExecutionSerializer(connector.executions.all()[:25], many=True)
+        return Response(serializer.data)
+
+
+# ── 18. OUTBOUND COMMUNICATION API VIEWS ──────────────────────────────────────
+class CommunicationPreferencesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .communications.engine import CommunicationEngine
+        pref = CommunicationEngine.get_or_create_preferences(request.user)
+        return Response(CommunicationPreferenceSerializer(pref).data)
+
+    def patch(self, request):
+        from .communications.engine import CommunicationEngine
+        pref = CommunicationEngine.get_or_create_preferences(request.user)
+        data = request.data
+        if "email_enabled" in data:
+            pref.email_enabled = bool(data["email_enabled"])
+        if "sms_enabled" in data:
+            pref.sms_enabled = bool(data["sms_enabled"])
+        if "whatsapp_enabled" in data:
+            pref.whatsapp_enabled = bool(data["whatsapp_enabled"])
+        if "in_app_enabled" in data:
+            pref.in_app_enabled = bool(data["in_app_enabled"])
+        if "telegram_enabled" in data:
+            pref.telegram_enabled = bool(data["telegram_enabled"])
+        if "telegram_chat_id" in data:
+            pref.telegram_chat_id = str(data["telegram_chat_id"]).strip()
+        if "is_opted_out_all" in data:
+            pref.is_opted_out_all = bool(data["is_opted_out_all"])
+        if "daily_frequency_limit" in data:
+            pref.daily_frequency_limit = max(1, int(data["daily_frequency_limit"]))
+        pref.save()
+        return Response(CommunicationPreferenceSerializer(pref).data)
+
+
+class CommunicationConsentsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        consents = CommunicationConsent.objects.filter(user=request.user)
+        return Response(CommunicationConsentSerializer(consents, many=True).data)
+
+    def post(self, request):
+        purpose = request.data.get("purpose")
+        is_granted = request.data.get("is_granted", True)
+        if not purpose:
+            return Response({"error": "Field 'purpose' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        consent, _ = CommunicationConsent.objects.get_or_create(
+            user=request.user,
+            purpose=purpose,
+            defaults={"is_granted": is_granted},
+        )
+        if not is_granted:
+            consent.revoke()
+        else:
+            consent.is_granted = True
+            consent.revoked_at = None
+            consent.save(update_fields=["is_granted", "revoked_at"])
+
+        return Response(CommunicationConsentSerializer(consent).data)
+
+
+class CommunicationSendView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        channel = request.data.get("channel")
+        template_name = request.data.get("template_name")
+        immutable_data = request.data.get("immutable_data", {})
+        recipient = request.data.get("recipient")
+        agent_id = request.data.get("agent_id")
+        personal_greeting = request.data.get("personal_greeting", "")
+
+        if not channel or not template_name:
+            return Response(
+                {"error": "Fields 'channel' and 'template_name' are required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        agent = None
+        if agent_id:
+            agent = Agent.objects.filter(id=agent_id).first()
+
+        from .communications.engine import CommunicationEngine
+        try:
+            res = CommunicationEngine.dispatch(
+                user=request.user,
+                channel=channel,
+                template_name=template_name,
+                immutable_data=immutable_data,
+                recipient=recipient,
+                agent=agent,
+                personal_greeting=personal_greeting,
+            )
+            return Response(res)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CommunicationEventsView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        is_admin = getattr(request.user, "effective_role", "") == "admin"
+        if is_admin and request.query_params.get("all") == "true":
+            events = CommunicationEvent.objects.all()[:100]
+        else:
+            events = CommunicationEvent.objects.filter(user=request.user)[:100]
+        return Response(CommunicationEventSerializer(events, many=True).data)
+
+
+# ── 19. EXPLAINABLE FINANCIAL RISK ENGINE VIEWS ─────────────────────────────────
+class RiskEvaluateView(APIView):
+    """
+    Evaluates transactional, behavioral, and environmental parameters
+    to generate an explainable risk evaluation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        inputs = request.data.get("inputs") or request.data
+        include_llm = bool(request.data.get("include_llm_explanation", False))
+        save_record = bool(request.data.get("save_record", True))
+
+        agent_id = request.data.get("agent_id")
+        agent = None
+        if agent_id:
+            agent = Agent.objects.filter(id=agent_id).first()
+
+        try:
+            result = FinancialRiskEngine.evaluate(inputs, include_llm_explanation=include_llm)
+
+            if save_record:
+                amount_val = inputs.get("transaction_amount")
+                amount_dec = Decimal(str(amount_val)) if amount_val is not None else None
+                record = FinancialRiskRecord.objects.create(
+                    user=request.user,
+                    agent=agent,
+                    transaction_amount=amount_dec,
+                    risk_score=result["riskScore"],
+                    risk_level=result["riskLevel"],
+                    reasons=result["reasons"],
+                    critical_rule_triggered=result["critical_rule_triggered"],
+                    rule_breakdown=result["rule_breakdown"],
+                    inputs_snapshot=inputs,
+                    explanation=result["explanation"],
+                )
+                result["record_id"] = str(record.id)
+
+            return Response(result)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RiskHistoryView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        records = FinancialRiskRecord.objects.filter(user=request.user)[:50]
+        return Response(FinancialRiskRecordSerializer(records, many=True).data)
+
+
+
+
 
 
 

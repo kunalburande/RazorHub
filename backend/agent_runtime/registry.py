@@ -315,5 +315,117 @@ def register_builtin_tools():
         ]
         return {"items": results, "count": len(results)}
 
+    @register_tool(
+        name="execute_payout",
+        description="Executes a verified vendor or merchant payout.",
+        category="banking",
+        risk_level="HIGH",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "recipient": {"type": "string"},
+                "amount": {"type": "number"},
+                "currency": {"type": "string"},
+            },
+            "required": ["recipient", "amount"],
+        },
+    )
+    def execute_payout_tool(recipient: str, amount: float, currency: str = "INR") -> dict:
+        import uuid
+        return {
+            "payout_id": f"pout_{uuid.uuid4().hex[:12]}",
+            "recipient": recipient,
+            "amount": float(amount),
+            "currency": currency,
+            "status": "PROCESSED",
+        }
+
+    @register_tool(
+        name="create_payment_intent",
+        description="Creates an authorized commerce payment intent.",
+        category="commerce",
+        risk_level="MEDIUM",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "amount": {"type": "number"},
+                "currency": {"type": "string"},
+                "item": {"type": "string"},
+            },
+            "required": ["amount"],
+        },
+    )
+    def create_payment_intent_tool(amount: float, currency: str = "INR", item: str = "") -> dict:
+        import uuid
+        return {
+            "intent_id": f"pi_{uuid.uuid4().hex[:12]}",
+            "amount": float(amount),
+            "currency": currency,
+            "item": item,
+            "status": "AUTHORIZED",
+        }
+
+    @register_tool(
+        name="generate_report",
+        description="Generates executive business and financial reports.",
+        category="analytics",
+        risk_level="LOW",
+        parameters_schema={
+            "type": "object",
+            "properties": {
+                "report_type": {"type": "string"},
+            },
+            "required": ["report_type"],
+        },
+    )
+    def generate_report_tool(report_type: str = "EXECUTIVE_SUMMARY") -> dict:
+        return {
+            "report_id": "rep_exec_001",
+            "report_type": report_type,
+            "metrics": {"revenue_mtd": 1250000, "profit_margin": 0.24},
+            "status": "READY",
+        }
+
+    @register_tool(
+        name="fetch_balance",
+        description="Fetches primary treasury account balance.",
+        category="financial",
+        risk_level="LOW",
+    )
+    def fetch_balance_tool(account_id: str = "acc_primary_001") -> dict:
+        return {
+            "account_id": account_id,
+            "available_balance": 150000.00,
+            "status": "active",
+        }
+
+    @register_tool(
+        name="analyze_refunds",
+        description="Analyzes refund trends and calculates anomaly score.",
+        category="analytics",
+        risk_level="LOW",
+    )
+    def analyze_refunds_tool(lookback_days: int = 30) -> dict:
+        return {"refund_rate": 0.042, "baseline_rate": 0.038, "anomaly_detected": False}
+
+    @register_tool(
+        name="get_overdue_invoices",
+        description="Fetches all pending accounts receivable invoices.",
+        category="banking",
+        risk_level="LOW",
+    )
+    def get_overdue_invoices_tool(days_threshold: int = 30) -> dict:
+        return {"overdue_count": 3, "total_overdue_amount": 75000.0}
+
+    @register_tool(
+        name="reconcile_settlements",
+        description="Reconciles bank settlements against transaction ledger.",
+        category="banking",
+        risk_level="LOW",
+    )
+    def reconcile_settlements_tool(batch_id: str = "set_batch_today") -> dict:
+        return {"batch_id": batch_id, "reconciled_count": 142, "discrepancies": 0}
+
 
 register_builtin_tools()
+

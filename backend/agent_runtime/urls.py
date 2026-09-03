@@ -27,8 +27,22 @@ from .views import (
     BankingPayoutExecuteView,
     BankingBookkeepingView,
     BankingReportsView,
+
     BankingReconciliationView,
+    CommandCenterExecuteView,
+    CommandCenterApproveActionView,
+    ConnectorViewSet,
+    CommunicationPreferencesView,
+    CommunicationConsentsView,
+    CommunicationSendView,
+    CommunicationEventsView,
+    RiskEvaluateView,
+    RiskHistoryView,
 )
+
+
+
+
 
 
 router = DefaultRouter()
@@ -41,6 +55,8 @@ router.register(r"executions", AgentExecutionViewSet, basename="agent-execution"
 router.register(r"approvals", AgentApprovalViewSet, basename="agent-approval")
 router.register(r"audit-logs", AgentAuditLogViewSet, basename="agent-audit-log")
 router.register(r"authorizations", AgentPaymentAuthorizationViewSet, basename="agent-payment-authorization")
+router.register(r"connectors", ConnectorViewSet, basename="connector")
+
 
 
 urlpatterns = [
@@ -62,8 +78,19 @@ urlpatterns = [
     path("banking/bookkeeping/", BankingBookkeepingView.as_view(), name="banking-bookkeeping"),
     path("banking/reports/", BankingReportsView.as_view(), name="banking-reports"),
     path("banking/reconciliation/", BankingReconciliationView.as_view(), name="banking-reconciliation"),
+    path("command-center/execute/", CommandCenterExecuteView.as_view(), name="command-center-execute"),
+    path("command-center/approve/", CommandCenterApproveActionView.as_view(), name="command-center-approve"),
+    path("communication/preferences/", CommunicationPreferencesView.as_view(), name="communication-preferences"),
+    path("communication/consents/", CommunicationConsentsView.as_view(), name="communication-consents"),
+    path("communication/send/", CommunicationSendView.as_view(), name="communication-send"),
+    path("communication/events/", CommunicationEventsView.as_view(), name="communication-events"),
+    path("risk/evaluate/", RiskEvaluateView.as_view(), name="risk-evaluate"),
+    path("risk/history/", RiskHistoryView.as_view(), name="risk-history"),
     path("", include(router.urls)),
 ]
+
+
+
 
 
 

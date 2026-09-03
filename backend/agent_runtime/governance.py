@@ -16,9 +16,12 @@ from .models import (
     AgentAuditLog,
     AuditEventType,
     AuditSeverity,
+    FinancialRiskRecord,
 )
 from .tools.registry import ToolRegistry
 from .tools.base import ToolExecutionContext, ToolResult
+from .risk import FinancialRiskEngine
+
 
 logger = logging.getLogger(__name__)
 
@@ -256,7 +259,7 @@ class BudgetValidator:
 # ── 5. RISK ENGINE ────────────────────────────────────────────────────────────
 class RiskEngine:
     """
-    Multi-factor risk scoring engine (0.00 to 1.00).
+    Multi-factor risk scoring engine (0.00 to 1.00) powered by FinancialRiskEngine.
     """
 
     @classmethod
@@ -266,29 +269,30 @@ class RiskEngine:
         amount: Optional[float],
         merchant: str,
         is_mutation: bool,
+        extra_inputs: Optional[Dict[str, Any]] = None,
     ) -> float:
-        score = 0.1
-
         if not is_mutation:
-            return score
+            return 0.05
 
-        if amount:
-            amt_val = float(amount)
-            max_limit = float(policy.max_transaction_amount)
-            ratio = (amt_val / max_limit) if max_limit > 0 else 1.0
+        customer_avg = float(policy.max_transaction_amount) * 0.25 if policy.max_transaction_amount else 5000.0
+        inputs = {
+            "transaction_amount": amount,
+            "customer_avg_amount": customer_avg,
+            "merchant_history": {
+                "merchant_name": merchant,
+                "is_new": bool(merchant and merchant.lower() not in [m.lower() for m in (policy.allowed_merchants or [])]),
+            },
+        }
+        if extra_inputs:
+            inputs.update(extra_inputs)
 
-            if ratio >= 0.8:
-                score += 0.4
-            elif ratio >= 0.5:
-                score += 0.25
-            else:
-                score += 0.1
+        res = FinancialRiskEngine.evaluate(inputs)
+        return round(res["riskScore"] / 100.0, 2)
 
-        # Unrecognized / new merchant penalty
-        if merchant and merchant.lower() not in [m.lower() for m in (policy.allowed_merchants or [])]:
-            score += 0.25
+    @classmethod
+    def evaluate_full(cls, inputs: Dict[str, Any], include_llm_explanation: bool = False) -> Dict[str, Any]:
+        return FinancialRiskEngine.evaluate(inputs, include_llm_explanation=include_llm_explanation)
 
-        return round(min(1.0, score), 2)
 
 
 # ── 6. TRANSACTION GOVERNANCE FIREWALL ORCHESTRATOR ───────────────────────────
@@ -432,12 +436,53 @@ class TransactionGovernanceFirewall:
                 risk_score=0.85,
             )
 
-        # ── STAGE 5: RISK ENGINE ──
-        risk_score = RiskEngine.calculate_score(policy, amt_float, merchant, is_mutation)
+        # ── STAGE 5: EXPLAINABLE FINANCIAL RISK ENGINE ──
+        customer_avg = float(policy.max_transaction_amount) * 0.25 if policy.max_transaction_amount else 5000.0
+        risk_inputs = {
+            "transaction_amount": amt_float,
+            "customer_avg_amount": arguments.get("customer_avg_amount", customer_avg),
+            "customer_age_days": arguments.get("customer_age_days", arguments.get("customer_age", 365)),
+            "merchant_history": arguments.get("merchant_history", {
+                "merchant_name": merchant,
+                "is_new": bool(merchant and merchant.lower() not in [m.lower() for m in (policy.allowed_merchants or [])]),
+            }),
+            "payment_history": arguments.get("payment_history", {}),
+            "refund_history": arguments.get("refund_history", {}),
+            "chargeback_history": arguments.get("chargeback_history", {}),
+            "velocity": arguments.get("velocity", {}),
+            "category": category,
+            "device": arguments.get("device", {}),
+            "location": arguments.get("location", {}),
+            "failed_attempts": arguments.get("failed_attempts", 0),
+        }
+
+        risk_evaluation = FinancialRiskEngine.evaluate(risk_inputs)
+        raw_risk_score = risk_evaluation["riskScore"]
+        risk_level = risk_evaluation["riskLevel"]
+        risk_reasons = risk_evaluation["reasons"]
+        critical_rule_triggered = risk_evaluation["critical_rule_triggered"]
+
+        risk_score = round(raw_risk_score / 100.0, 2)
+
+        # Deterministic Critical Firewall Halt:
+        if critical_rule_triggered or risk_level == "CRITICAL":
+            return cls._record_and_return(
+                decision=GovernanceDecision.DENY,
+                reason=f"Blocked by Explainable Risk Engine (Score: {raw_risk_score}/100, CRITICAL). Reasons: {'; '.join(risk_reasons)}",
+                policy_triggered="CRITICAL_FINANCIAL_RISK_RULE",
+                agent=agent,
+                user=user,
+                action=tool_name,
+                amount=amt_float,
+                merchant=merchant,
+                raw_prompt=raw_prompt,
+                risk_score=risk_score,
+                details={"risk_evaluation": risk_evaluation},
+            )
 
         # ── STAGE 6: APPROVAL ENGINE ──
         requires_approval = False
-        requires_double_confirmation = policy.require_double_confirmation or (risk_score >= 0.8)
+        requires_double_confirmation = policy.require_double_confirmation or (risk_score >= 0.8) or (risk_level == "HIGH")
         approval_reason = ""
 
         if policy.require_human_approval:
@@ -446,9 +491,9 @@ class TransactionGovernanceFirewall:
         elif amt_float and Decimal(str(amt_float)) >= Decimal(str(policy.require_approval_above)):
             requires_approval = True
             approval_reason = f"Amount ₹{amt_float:,.2f} exceeds automatic approval limit ₹{policy.require_approval_above:,.2f}."
-        elif risk_score >= 0.65:
+        elif risk_level == "HIGH" or risk_score >= 0.60:
             requires_approval = True
-            approval_reason = f"High risk score ({risk_score}) requires explicit human confirmation."
+            approval_reason = f"High risk score ({raw_risk_score}/100 - {risk_level}) requires explicit human confirmation: {'; '.join(risk_reasons[:2]) if risk_reasons else 'Elevated multi-factor risk'}"
         elif getattr(tool, "requires_approval", False):
             requires_approval = True
             approval_reason = f"Tool '{tool_name}' carries mandatory approval requirement."
@@ -490,16 +535,34 @@ class TransactionGovernanceFirewall:
                 risk_score=risk_score,
                 approval_id=str(approval_record.approval_id),
                 requires_double_confirmation=requires_double_confirmation,
+                details={"risk_evaluation": risk_evaluation},
             )
             return res
 
         # ── STAGE 7: DECISION ALLOW ──
+        try:
+            FinancialRiskRecord.objects.create(
+                user=user if getattr(user, "is_authenticated", False) else None,
+                agent=agent,
+                transaction_amount=Decimal(str(amt_float)) if amt_float is not None else None,
+                risk_score=raw_risk_score,
+                risk_level=risk_level,
+                reasons=risk_reasons,
+                critical_rule_triggered=critical_rule_triggered,
+                rule_breakdown=risk_evaluation.get("rule_breakdown", []),
+                inputs_snapshot=risk_evaluation.get("inputs_summary", {}),
+                explanation=risk_evaluation.get("explanation", ""),
+            )
+        except Exception:
+            pass
+
         return GovernanceEvaluationResult(
             decision=GovernanceDecision.ALLOW,
             allowed=True,
             reason="All governance validators passed.",
             risk_score=risk_score,
             requires_double_confirmation=requires_double_confirmation,
+            details={"risk_evaluation": risk_evaluation},
         )
 
     @classmethod
@@ -517,8 +580,13 @@ class TransactionGovernanceFirewall:
         risk_score: float,
         approval_id: Optional[str] = None,
         requires_double_confirmation: bool = False,
+        details: Optional[Dict[str, Any]] = None,
     ) -> GovernanceEvaluationResult:
         # Every DENY, ESCALATE, and ALLOW_WITH_CONFIRMATION must be permanently recorded
+        rec_details = {"approval_id": approval_id, "double_confirmation": requires_double_confirmation}
+        if details:
+            rec_details.update(details)
+
         try:
             GovernanceDecisionRecord.objects.create(
                 agent=agent,
@@ -531,12 +599,32 @@ class TransactionGovernanceFirewall:
                 risk_score=risk_score,
                 policy_triggered=policy_triggered,
                 raw_prompt=raw_prompt,
-                details={"approval_id": approval_id, "double_confirmation": requires_double_confirmation},
+                details=rec_details,
             )
         except Exception as e:
             logger.error(f"Failed to record governance decision: {e}")
 
+        # Also create FinancialRiskRecord if risk_evaluation provided
+        if details and "risk_evaluation" in details:
+            risk_eval = details["risk_evaluation"]
+            try:
+                FinancialRiskRecord.objects.create(
+                    user=user if getattr(user, "is_authenticated", False) else None,
+                    agent=agent,
+                    transaction_amount=Decimal(str(amount)) if amount is not None else None,
+                    risk_score=risk_eval.get("riskScore", int(risk_score * 100)),
+                    risk_level=risk_eval.get("riskLevel", "LOW"),
+                    reasons=risk_eval.get("reasons", []),
+                    critical_rule_triggered=risk_eval.get("critical_rule_triggered", False),
+                    rule_breakdown=risk_eval.get("rule_breakdown", []),
+                    inputs_snapshot=risk_eval.get("inputs_summary", {}),
+                    explanation=risk_eval.get("explanation", ""),
+                )
+            except Exception as e:
+                logger.warning(f"Failed to record FinancialRiskRecord: {e}")
+
         # Also emit audit log
+
         severity = AuditSeverity.ERROR if decision == GovernanceDecision.DENY else AuditSeverity.WARNING
         try:
             AgentAuditLog.objects.create(

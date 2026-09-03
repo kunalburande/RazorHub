@@ -179,7 +179,9 @@ class Agent(models.Model):
     owner = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="owned_agents")
     tools = models.ManyToManyField(AgentTool, blank=True, related_name="agents")
     policies = models.ManyToManyField(AgentPolicy, blank=True, related_name="agents")
+    connectors = models.ManyToManyField("Connector", blank=True, related_name="agents")
     metadata = models.JSONField(default=dict, blank=True)
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -296,6 +298,24 @@ class AgentExecution(models.Model):
     output_response = models.TextField(blank=True)
     error_message = models.TextField(blank=True)
     execution_trace = models.JSONField(default=list, blank=True, help_text="Chronological trace of runtime stages")
+
+    # Observability & Audit Fields
+    intent = models.CharField(max_length=120, blank=True)
+    input_payload = models.JSONField(default=dict, blank=True)
+    context_data = models.JSONField(default=dict, blank=True)
+    tools_selected = models.JSONField(default=list, blank=True)
+    tool_inputs = models.JSONField(default=list, blank=True)
+    policy_checks = models.JSONField(default=list, blank=True)
+    risk_checks = models.JSONField(default=dict, blank=True)
+    approval_request = models.JSONField(default=dict, blank=True)
+    approval_response = models.JSONField(default=dict, blank=True)
+    tool_results = models.JSONField(default=list, blank=True)
+    final_action = models.CharField(max_length=150, blank=True)
+    duration_ms = models.PositiveIntegerField(default=0)
+    model_name = models.CharField(max_length=100, default="gemini-2.0-flash")
+    token_usage = models.JSONField(default=dict, blank=True)
+    timeline = models.JSONField(default=list, blank=True)
+
     started_at = models.DateTimeField(auto_now_add=True)
     completed_at = models.DateTimeField(null=True, blank=True)
 
@@ -306,17 +326,44 @@ class AgentExecution(models.Model):
         return f"Exec {str(self.execution_id)[:8]} - {self.agent.name} [{self.status}]"
 
     def append_trace(self, stage: str, message: str, meta: dict = None):
-        """Append an immutable trace entry to execution_trace."""
+        """Append an immutable scrubbed trace entry to execution_trace."""
         import datetime
+        from .observability.scrubber import SecretScrubber
         entry = {
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "stage": stage,
             "message": message,
-            "meta": meta or {},
+            "meta": SecretScrubber.scrub(meta or {}),
         }
+        if self.execution_trace is None:
+            self.execution_trace = []
         self.execution_trace.append(entry)
         self.current_step = stage
         self.save(update_fields=["execution_trace", "current_step"])
+
+    def add_timeline_event(self, title: str, stage: str = "", status: str = "INFO", meta: dict = None, timestamp=None):
+        """
+        Append a structured event to chronological timeline.
+        Format example: '15:42:02 Agent started', '15:42:04 Risk score calculated: 21'
+        All meta payloads are zero-trust scrubbed of secrets.
+        """
+        import datetime
+        from .observability.scrubber import SecretScrubber
+        now = timestamp or datetime.datetime.now(datetime.timezone.utc)
+        formatted_time = now.strftime("%H:%M:%S")
+        entry = {
+            "time": formatted_time,
+            "timestamp": now.isoformat(),
+            "title": title,
+            "stage": stage or title,
+            "status": status,
+            "meta": SecretScrubber.scrub(meta or {}),
+        }
+        if self.timeline is None:
+            self.timeline = []
+        self.timeline.append(entry)
+        self.save(update_fields=["timeline"])
+
 
 
 # ── 7. AGENT EXECUTION STEP ───────────────────────────────────────────────────
@@ -931,6 +978,285 @@ class BusinessFinanceReport(models.Model):
 
     def __str__(self):
         return f"{self.title} ({self.report_type}) - {self.created_at.strftime('%Y-%m-%d')}"
+
+
+# ── 16. CONNECTOR ARCHITECTURE ENTITIES ───────────────────────────────────────
+class ConnectorType(models.TextChoices):
+    PAYMENT_GATEWAY = "PaymentGateway", "Payment Gateway"
+    COMMERCE = "Commerce", "E-Commerce Platform"
+    BANKING = "Banking", "Business Banking & Treasury"
+    ACCOUNTING = "Accounting", "Accounting & General Ledger"
+    COMMUNICATION = "Communication", "Messaging & Notifications"
+    SHIPPING = "Shipping", "Logistics & Shipping"
+    ANALYTICS = "Analytics", "Data Warehouse & Analytics"
+
+
+class CapabilityType(models.TextChoices):
+    READ = "READ", "Read Data"
+    WRITE = "WRITE", "Write Data"
+    SEND = "SEND", "Send Message / Event"
+    CREATE = "CREATE", "Create Resource"
+    UPDATE = "UPDATE", "Update Resource"
+    DELETE = "DELETE", "Delete Resource"
+
+
+class ConnectorStatus(models.TextChoices):
+    ACTIVE = "ACTIVE", "Active"
+    INACTIVE = "INACTIVE", "Inactive"
+    ERROR = "ERROR", "Configuration Error"
+
+
+class Connector(models.Model):
+    """
+    Standardized external or mock system integration adapter.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    name = models.CharField(max_length=120, unique=True)
+    slug = models.CharField(max_length=80, unique=True, db_index=True)
+    connector_type = models.CharField(max_length=40, choices=ConnectorType.choices)
+    description = models.TextField()
+    status = models.CharField(max_length=20, choices=ConnectorStatus.choices, default=ConnectorStatus.ACTIVE)
+    is_mock = models.BooleanField(default=True)
+    version = models.CharField(max_length=20, default="1.0.0")
+    config_schema = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["connector_type", "name"]
+
+    def __str__(self):
+        return f"{self.name} ({self.connector_type}) [{self.status}]"
+
+
+class ConnectorCapability(models.Model):
+    """
+    Atomic operation supported by a connector (READ, WRITE, SEND, CREATE, UPDATE, DELETE).
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    connector = models.ForeignKey(Connector, on_delete=models.CASCADE, related_name="capabilities")
+    capability = models.CharField(max_length=20, choices=CapabilityType.choices)
+    name = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    input_schema = models.JSONField(default=dict, blank=True)
+    output_schema = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["connector", "capability", "name"]
+        unique_together = ("connector", "name")
+
+    def __str__(self):
+        return f"{self.connector.name} :: {self.capability} ({self.name})"
+
+
+class ConnectorCredential(models.Model):
+    """
+    Secure authentication tokens, API keys, or mock credentials for a connector.
+    """
+    class AuthType(models.TextChoices):
+        API_KEY = "API_KEY", "API Key"
+        BEARER_TOKEN = "BEARER_TOKEN", "Bearer Token"
+        OAUTH2 = "OAUTH2", "OAuth 2.0"
+        BASIC_AUTH = "BASIC_AUTH", "HTTP Basic Auth"
+        MOCK = "MOCK", "Mock Sandbox Secret"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    connector = models.ForeignKey(Connector, on_delete=models.CASCADE, related_name="credentials")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
+    name = models.CharField(max_length=120)
+    auth_type = models.CharField(max_length=30, choices=AuthType.choices, default=AuthType.MOCK)
+    encrypted_secret = models.TextField(blank=True)
+    is_valid = models.BooleanField(default=True)
+    last_verified_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Credential for {self.connector.name} ({self.auth_type})"
+
+
+class ConnectorExecution(models.Model):
+    """
+    Immutable forensic execution record for connector actions invoked by agents.
+    """
+    class ExecutionStatus(models.TextChoices):
+        SUCCESS = "SUCCESS", "Success"
+        FAILED = "FAILED", "Failed"
+        BLOCKED_BY_POLICY = "BLOCKED_BY_POLICY", "Blocked by Agent Configuration"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    connector = models.ForeignKey(Connector, on_delete=models.CASCADE, related_name="executions")
+    agent = models.ForeignKey(Agent, on_delete=models.SET_NULL, null=True, blank=True, related_name="connector_executions")
+    capability = models.CharField(max_length=20)
+    action_name = models.CharField(max_length=100)
+    status = models.CharField(max_length=30, choices=ExecutionStatus.choices, default=ExecutionStatus.SUCCESS)
+    input_payload = models.JSONField(default=dict, blank=True)
+    output_payload = models.JSONField(default=dict, blank=True)
+    error_message = models.TextField(blank=True)
+    duration_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.connector.name} [{self.capability}] {self.action_name} - {self.status}"
+
+
+# ── 17. OUTBOUND COMMUNICATION & CONSENT GOVERNANCE ───────────────────────────
+class CommunicationPurpose(models.TextChoices):
+    TRANSACTIONAL = "TRANSACTIONAL", "Transactional Notices"
+    MARKETING = "MARKETING", "Marketing & Promotional"
+    COLLECTIONS = "COLLECTIONS", "Overdue Invoices & Collections"
+    SECURITY_ALERTS = "SECURITY_ALERTS", "Security & Anomaly Alerts"
+    ACCOUNT_UPDATES = "ACCOUNT_UPDATES", "Account & Policy Updates"
+
+
+class CommunicationChannel(models.TextChoices):
+    EMAIL = "EMAIL", "Email"
+    SMS = "SMS", "SMS Text Message"
+    WHATSAPP = "WHATSAPP", "WhatsApp Business"
+    IN_APP = "IN_APP", "In-App Notification"
+    TELEGRAM = "TELEGRAM", "Telegram Channel / Bot"
+
+
+class CommunicationEventStatus(models.TextChoices):
+    DISPATCHED = "DISPATCHED", "Dispatched Successfully"
+    BLOCKED_NO_CONSENT = "BLOCKED_NO_CONSENT", "Blocked: Missing User Consent"
+    BLOCKED_OPTED_OUT = "BLOCKED_OPTED_OUT", "Blocked: User Opted Out"
+    BLOCKED_CHANNEL_DISABLED = "BLOCKED_CHANNEL_DISABLED", "Blocked: Channel Disabled by User"
+    BLOCKED_FREQUENCY_LIMIT = "BLOCKED_FREQUENCY_LIMIT", "Blocked: Daily Frequency Limit Exceeded"
+    BLOCKED_AGENT_PERMISSION = "BLOCKED_AGENT_PERMISSION", "Blocked: Agent Lacks Communication Permission"
+    FAILED = "FAILED", "Provider Dispatch Failed"
+
+
+class CommunicationConsent(models.Model):
+    """
+    Explicit user consent record for a communication purpose.
+    Agents cannot message users without active consent.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="communication_consents")
+    purpose = models.CharField(max_length=40, choices=CommunicationPurpose.choices)
+    is_granted = models.BooleanField(default=True)
+    granted_at = models.DateTimeField(auto_now_add=True)
+    revoked_at = models.DateTimeField(null=True, blank=True)
+    ip_address = models.CharField(max_length=64, blank=True)
+
+    class Meta:
+        ordering = ["-granted_at"]
+        unique_together = ("user", "purpose")
+
+    def __str__(self):
+        state = "ACTIVE" if self.is_granted and not self.revoked_at else "REVOKED"
+        return f"{self.user.email} :: {self.purpose} [{state}]"
+
+    def revoke(self):
+        self.is_granted = False
+        self.revoked_at = timezone.now()
+        self.save(update_fields=["is_granted", "revoked_at"])
+
+
+class CommunicationPreference(models.Model):
+    """
+    User-managed communication channel toggles, daily frequency limits, and global opt-out.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="communication_preferences")
+    email_enabled = models.BooleanField(default=True)
+    sms_enabled = models.BooleanField(default=True)
+    whatsapp_enabled = models.BooleanField(default=True)
+    in_app_enabled = models.BooleanField(default=True)
+    telegram_enabled = models.BooleanField(default=False)
+    telegram_chat_id = models.CharField(max_length=120, blank=True)
+    is_opted_out_all = models.BooleanField(default=False)
+    daily_frequency_limit = models.PositiveIntegerField(default=5)
+    quiet_hours_start = models.PositiveIntegerField(default=22)  # 10 PM
+    quiet_hours_end = models.PositiveIntegerField(default=8)    # 8 AM
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Preferences for {self.user.email} (Opted-out: {self.is_opted_out_all})"
+
+    def is_channel_enabled(self, channel: str) -> bool:
+        if self.is_opted_out_all:
+            return False
+        channel_upper = channel.upper()
+        if channel_upper == CommunicationChannel.EMAIL:
+            return self.email_enabled
+        elif channel_upper == CommunicationChannel.SMS:
+            return self.sms_enabled
+        elif channel_upper == CommunicationChannel.WHATSAPP:
+            return self.whatsapp_enabled
+        elif channel_upper == CommunicationChannel.IN_APP:
+            return self.in_app_enabled
+        elif channel_upper == CommunicationChannel.TELEGRAM:
+            return self.telegram_enabled
+        return False
+
+
+class CommunicationEvent(models.Model):
+    """
+    Forensic audit log of all outbound messages sent or blocked by the communication firewall.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name="communication_events")
+    agent = models.ForeignKey(Agent, on_delete=models.SET_NULL, null=True, blank=True, related_name="communication_events")
+    channel = models.CharField(max_length=20, choices=CommunicationChannel.choices)
+    purpose = models.CharField(max_length=40, choices=CommunicationPurpose.choices, default=CommunicationPurpose.TRANSACTIONAL)
+    template_name = models.CharField(max_length=100)
+    recipient = models.CharField(max_length=255)
+    rendered_content = models.TextField()
+    status = models.CharField(max_length=40, choices=CommunicationEventStatus.choices, default=CommunicationEventStatus.DISPATCHED)
+    immutable_data = models.JSONField(default=dict, blank=True, help_text="Frozen financial/legal anchors")
+    blocked_reason = models.TextField(blank=True)
+    duration_ms = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"[{self.channel}] {self.template_name} -> {self.recipient} [{self.status}]"
+
+
+# ── 18. FINANCIAL RISK EVALUATION RECORD ──────────────────────────────────────
+class FinancialRiskLevel(models.TextChoices):
+    LOW = "LOW", "Low Risk"
+    MEDIUM = "MEDIUM", "Medium Risk"
+    HIGH = "HIGH", "High Risk"
+    CRITICAL = "CRITICAL", "Critical Risk"
+
+
+class FinancialRiskRecord(models.Model):
+    """
+    Forensic record of financial risk evaluations produced by the FinancialRiskEngine.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="risk_records")
+    agent = models.ForeignKey(Agent, on_delete=models.SET_NULL, null=True, blank=True, related_name="risk_records")
+    transaction_amount = models.DecimalField(max_digits=14, decimal_places=2, null=True, blank=True)
+    risk_score = models.PositiveIntegerField(default=0)
+    risk_level = models.CharField(max_length=20, choices=FinancialRiskLevel.choices, default=FinancialRiskLevel.LOW)
+    reasons = models.JSONField(default=list, blank=True)
+    critical_rule_triggered = models.BooleanField(default=False)
+    rule_breakdown = models.JSONField(default=list, blank=True)
+    inputs_snapshot = models.JSONField(default=dict, blank=True)
+    explanation = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Risk {self.risk_score} [{self.risk_level}] (Amount: ₹{self.transaction_amount or 0})"
+
+
+
 
 
 

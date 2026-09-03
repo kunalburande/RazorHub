@@ -210,8 +210,35 @@ export default function AgentStudioHome() {
               <ShieldCheck className="w-4 h-4" />
               Payment Authorizations
             </Link>
+
+            <Link
+              to="/agents/connectors"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-indigo-500/20 hover:bg-indigo-500/30 border border-indigo-500/40 text-indigo-300 backdrop-blur-md transition-all active:scale-95"
+            >
+              <Layers className="w-4 h-4" />
+              Connectors & Integrations
+            </Link>
+
+            <Link
+              to="/risk-engine"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-orange-500/20 hover:bg-orange-500/30 border border-orange-500/40 text-orange-300 backdrop-blur-md transition-all active:scale-95"
+            >
+              <ShieldAlert className="w-4 h-4" />
+              Risk Engine & Sentinels
+            </Link>
+
+            <Link
+              to="/agents/observability"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 backdrop-blur-md transition-all active:scale-95"
+            >
+              <Activity className="w-4 h-4" />
+              Observability & Audit
+            </Link>
+
+
           </div>
         </div>
+
 
 
         {/* Live Metrics Ribbon */}
