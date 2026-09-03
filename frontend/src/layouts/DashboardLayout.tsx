@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Bell, ClipboardList, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
+import { BarChart3, Bell, Bot, ClipboardList, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTranslation } from '../i18n/LocaleContext';
@@ -13,12 +13,14 @@ export default function DashboardLayout() {
   const roleNav = {
     customer: [
       { to: '/dashboard', label: t('dashboard.navAccount', { defaultValue: 'Account' }), icon: LayoutDashboard },
+      { to: '/agents', label: 'Agent Studio', icon: Bot },
       { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
       { to: '/dashboard/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
       { to: '/dashboard/tickets', label: t('dashboard.navSupport', { defaultValue: 'Support' }), icon: Ticket },
     ],
     seller: [
       { to: '/seller', label: t('dashboard.navDashboard', { defaultValue: 'Dashboard' }), icon: BarChart3 },
+      { to: '/agents', label: 'Agent Studio', icon: Bot },
       { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
       { to: '/seller/products', label: t('dashboard.navProducts', { defaultValue: 'Products' }), icon: Package },
       { to: '/seller/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
@@ -26,6 +28,7 @@ export default function DashboardLayout() {
     ],
     admin: [
       { to: '/admin', label: t('dashboard.navOverview', { defaultValue: 'Overview' }), icon: LayoutDashboard },
+      { to: '/agents', label: 'Agent Studio', icon: Bot },
       { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
       { to: '/admin/users', label: t('dashboard.navUsers', { defaultValue: 'Users' }), icon: Users },
       { to: '/admin/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
@@ -33,6 +36,7 @@ export default function DashboardLayout() {
       { to: '/admin/settings', label: t('dashboard.navSettings', { defaultValue: 'Settings' }), icon: Settings },
     ],
   };
+
 
   const nav = roleNav[role];
 

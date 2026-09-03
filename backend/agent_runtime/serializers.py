@@ -12,7 +12,9 @@ from .models import (
     AgentMemory,
     AgentGovernancePolicy,
     GovernanceDecisionRecord,
+    RefundAnomalyRecord,
 )
+
 
 
 class AgentToolSerializer(serializers.ModelSerializer):
@@ -39,6 +41,12 @@ class AgentVersionSerializer(serializers.ModelSerializer):
         fields = "__all__"
 
 
+class AgentGovernancePolicySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgentGovernancePolicy
+        fields = "__all__"
+
+
 class AgentSerializer(serializers.ModelSerializer):
     tools = AgentToolSerializer(many=True, read_only=True)
     tool_ids = serializers.PrimaryKeyRelatedField(
@@ -57,6 +65,7 @@ class AgentSerializer(serializers.ModelSerializer):
         required=False,
     )
     triggers = AgentTriggerSerializer(many=True, read_only=True)
+    governance_policy = AgentGovernancePolicySerializer(read_only=True)
 
     class Meta:
         model = Agent
@@ -73,10 +82,12 @@ class AgentSerializer(serializers.ModelSerializer):
             "policies",
             "policy_ids",
             "triggers",
+            "governance_policy",
             "metadata",
             "created_at",
             "updated_at",
         ]
+
 
 
 class AgentExecutionStepSerializer(serializers.ModelSerializer):
@@ -132,10 +143,6 @@ class AgentApprovalSerializer(serializers.ModelSerializer):
 
 
 
-class AgentGovernancePolicySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = AgentGovernancePolicy
-        fields = "__all__"
 
 
 class GovernanceDecisionRecordSerializer(serializers.ModelSerializer):
@@ -182,3 +189,12 @@ class AgentMemorySerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentMemory
         fields = "__all__"
+
+
+class RefundAnomalyRecordSerializer(serializers.ModelSerializer):
+    agent_name = serializers.CharField(source="agent.name", read_only=True)
+
+    class Meta:
+        model = RefundAnomalyRecord
+        fields = "__all__"
+

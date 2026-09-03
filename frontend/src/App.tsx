@@ -36,6 +36,17 @@ const ApiPage = lazy(() => import('./seller/pages/support/ApiPage'));
 const HelpPage = lazy(() => import('./seller/pages/support/HelpPage'));
 const CookiesPage = lazy(() => import('./seller/pages/legal/CookiesPage'));
 
+const AgentStudioHome = lazy(() => import('./pages/agents/AgentStudioHome'));
+const AgentMarketplace = lazy(() => import('./pages/agents/AgentMarketplace'));
+const AgentBuilder = lazy(() => import('./pages/agents/AgentBuilder'));
+const AgentDetails = lazy(() => import('./pages/agents/AgentDetails'));
+const AgentConfigurationPage = lazy(() => import('./pages/agents/AgentConfigurationPage'));
+const AgentExecutionsPage = lazy(() => import('./pages/agents/AgentExecutionsPage'));
+const AgentAuditPage = lazy(() => import('./pages/agents/AgentAuditPage'));
+const RefundSpikeAnalyzerPage = lazy(() => import('./pages/agents/RefundSpikeAnalyzerPage'));
+
+
+
 function RouteFallback() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
@@ -101,8 +112,22 @@ function App() {
                       }
                     />
 
+                    {/* Agent Studio Suite */}
+                    <Route element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                      <Route path="/agents" element={<AgentStudioHome />} />
+                      <Route path="/agents/marketplace" element={<AgentMarketplace />} />
+                      <Route path="/agents/create" element={<AgentBuilder />} />
+                      <Route path="/agents/refund-spike-analyzer" element={<RefundSpikeAnalyzerPage />} />
+                      <Route path="/agents/:id" element={<AgentDetails />} />
+                      <Route path="/agents/:id/configuration" element={<AgentConfigurationPage />} />
+                      <Route path="/agents/:id/executions" element={<AgentExecutionsPage />} />
+                      <Route path="/agents/:id/audit" element={<AgentAuditPage />} />
+                    </Route>
+
+
                     {/* Admin Portal */}
                     <Route element={<ProtectedRoute roles={['admin']}><DashboardLayout /></ProtectedRoute>}>
+
                       <Route path="/admin" element={<AdminDashboard />} />
                       <Route path="/admin/users" element={<AdminUsersPage />} />
                       <Route path="/admin/orders" element={<OrdersPage mode="admin" />} />

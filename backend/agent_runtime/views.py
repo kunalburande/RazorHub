@@ -1,8 +1,12 @@
+import logging
 from rest_framework import viewsets, permissions, status
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
+
+logger = logging.getLogger(__name__)
+
 
 from .models import (
     Agent,
@@ -14,6 +18,7 @@ from .models import (
     AgentAuditLog,
     AgentGovernancePolicy,
     GovernanceDecisionRecord,
+    RefundAnomalyRecord,
 )
 from .serializers import (
     AgentSerializer,
@@ -24,8 +29,11 @@ from .serializers import (
     AgentAuditLogSerializer,
     AgentGovernancePolicySerializer,
     GovernanceDecisionRecordSerializer,
+    RefundAnomalyRecordSerializer,
 )
+from decimal import Decimal
 from .runtime import AgentRuntime
+
 
 
 class IsSellerOrAdminPermission(permissions.BasePermission):
@@ -58,6 +66,154 @@ class AgentViewSet(viewsets.ModelViewSet):
         agent.disable()
         return Response({"status": "DISABLED", "message": f"Agent '{agent.name}' is now DISABLED."})
 
+    @action(detail=False, methods=["get"])
+    def marketplace(self, request):
+        from .marketplace_templates import PREBUILT_AGENT_TEMPLATES
+        existing_agents = {a.name.lower(): str(a.id) for a in Agent.objects.all()}
+        
+        catalog = []
+        for tmpl in PREBUILT_AGENT_TEMPLATES:
+            installed_id = existing_agents.get(tmpl["name"].lower())
+            catalog.append({
+                **tmpl,
+                "is_installed": bool(installed_id),
+                "installed_agent_id": installed_id,
+            })
+        return Response(catalog)
+
+    @action(detail=False, methods=["post"])
+    def install(self, request):
+        from .marketplace_templates import get_template_by_id
+        template_id = request.data.get("template_id")
+        if not template_id:
+            return Response({"error": "Field 'template_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            tmpl = get_template_by_id(template_id)
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_404_NOT_FOUND)
+
+        custom_name = request.data.get("name") or tmpl["name"]
+        auto_activate = request.data.get("auto_activate", True)
+
+        # 1. Create or retrieve Agent
+        agent, created = Agent.objects.get_or_create(
+            name=custom_name,
+            defaults={
+                "description": tmpl["description"],
+                "system_prompt": tmpl["system_prompt"],
+                "status": AgentStatus.ACTIVE if auto_activate else AgentStatus.DRAFT,
+                "approval_mode": tmpl.get("approval_mode", "AUTO"),
+                "risk_level": tmpl.get("risk_level", "LOW"),
+                "metadata": {
+                    "template_id": tmpl["id"],
+                    "category": tmpl["category"],
+                    "automation_level": tmpl["automation_level"],
+                    "capabilities": tmpl.get("capabilities", []),
+                },
+            },
+        )
+
+        # 2. Attach Tools
+        from .models import AgentTool, AgentTrigger, AgentGovernancePolicy, AgentVersion, AgentAuditLog, AuditEventType, AuditSeverity
+        for tool_name in tmpl.get("tools_used", []):
+            tool_obj, _ = AgentTool.objects.get_or_create(
+                name=tool_name,
+                defaults={"category": tmpl["category"].lower(), "description": f"Tool for {tool_name}"},
+            )
+            agent.tools.add(tool_obj)
+
+        # 3. Create Triggers
+        for trig in tmpl.get("triggers", []):
+            AgentTrigger.objects.get_or_create(
+                agent=agent,
+                name=trig["name"],
+                trigger_type=trig["trigger_type"],
+                defaults={"configuration": trig.get("config", {})},
+            )
+
+
+        # 4. Create Governance Policy
+        gov_data = tmpl.get("governance_policy", {})
+        if gov_data and not hasattr(agent, "governance_policy"):
+            AgentGovernancePolicy.objects.create(
+                agent=agent,
+                name=gov_data.get("name", f"{agent.name} Policy"),
+                max_transaction_amount=gov_data.get("max_transaction_amount", 5000.00),
+                daily_spend_limit=gov_data.get("daily_spend_limit", 10000.00),
+                require_approval_above=gov_data.get("require_approval_above", 2000.00),
+                blocked_categories=gov_data.get("blocked_categories", []),
+                allowed_categories=gov_data.get("allowed_categories", []),
+                require_human_approval=gov_data.get("require_human_approval", False),
+                require_double_confirmation=gov_data.get("require_double_confirmation", False),
+            )
+
+        # 5. Create Version snapshot
+        AgentVersion.objects.create(
+            agent=agent,
+            system_prompt=agent.system_prompt,
+            configuration={"tools": tmpl.get("tools_used", []), "governance": str(gov_data)},
+            change_summary="Marketplace template install",
+        )
+
+
+        # 6. Log audit event
+        AgentAuditLog.objects.create(
+            agent=agent,
+            event_type=AuditEventType.AGENT_CREATED,
+            severity=AuditSeverity.INFO,
+            actor_type="USER",
+            actor_id=str(request.user.id) if request.user else "system",
+            details={"action": "INSTALLED_PREBUILT_AGENT", "template_id": template_id, "name": agent.name},
+        )
+
+        return Response(AgentSerializer(agent).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=["post"])
+    def execute(self, request, pk=None):
+        agent = self.get_object()
+        req_text = request.data.get("request", "").strip()
+        if not req_text:
+            return Response({"error": "Field 'request' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        session_id = request.data.get("session_id", "")
+        custom_context = request.data.get("context", {})
+
+        execution = AgentRuntime.run(
+            request_text=req_text,
+            agent=agent,
+            user=request.user,
+            session_id=session_id,
+            context=custom_context,
+        )
+
+        return Response(AgentExecutionSerializer(execution).data)
+
+    def create(self, request, *args, **kwargs):
+        gov_data = request.data.get("governance_policy")
+        response = super().create(request, *args, **kwargs)
+        if response.status_code == 201 and gov_data:
+            agent = Agent.objects.get(id=response.data["id"])
+            AgentGovernancePolicy.objects.create(
+                agent=agent,
+                name=gov_data.get("name", f"{agent.name} Policy"),
+                max_transaction_amount=gov_data.get("max_transaction_amount", 5000.00),
+                daily_spend_limit=gov_data.get("daily_spend_limit", 10000.00),
+                weekly_spend_limit=gov_data.get("weekly_spend_limit", 40000.00),
+                monthly_spend_limit=gov_data.get("monthly_spend_limit", 150000.00),
+                require_approval_above=gov_data.get("require_approval_above", 2000.00),
+                blocked_categories=gov_data.get("blocked_categories", []),
+                allowed_categories=gov_data.get("allowed_categories", []),
+                allowed_merchants=gov_data.get("allowed_merchants", []),
+                blocked_merchants=gov_data.get("blocked_merchants", []),
+                require_human_approval=gov_data.get("require_human_approval", False),
+                require_double_confirmation=gov_data.get("require_double_confirmation", False),
+            )
+            response.data = AgentSerializer(agent).data
+        return response
+
+
+
 
 class AgentToolViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = AgentTool.objects.filter(is_enabled=True)
@@ -72,9 +228,16 @@ class AgentPolicyViewSet(viewsets.ModelViewSet):
 
 
 class AgentExecutionViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AgentExecution.objects.select_related("agent").prefetch_related("steps", "approvals").all()
     serializer_class = AgentExecutionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = AgentExecution.objects.select_related("agent").prefetch_related("steps", "approvals").all()
+        agent_id = self.request.query_params.get("agent")
+        if agent_id:
+            qs = qs.filter(agent_id=agent_id)
+        return qs
+
 
     @action(detail=True, methods=["get"])
     def trace(self, request, pk=None):
@@ -144,9 +307,16 @@ class GovernanceDecisionViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class AgentAuditLogViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AgentAuditLog.objects.select_related("agent", "execution").all()
     serializer_class = AgentAuditLogSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        qs = AgentAuditLog.objects.select_related("agent", "execution").all()
+        agent_id = self.request.query_params.get("agent")
+        if agent_id:
+            qs = qs.filter(agent_id=agent_id)
+        return qs
+
 
 
 class ExecuteAgentView(APIView):
@@ -178,3 +348,304 @@ class ExecuteAgentView(APIView):
         )
 
         return Response(AgentExecutionSerializer(execution).data)
+
+
+class BlueprintGenerateView(APIView):
+    """
+    POST /api/agent-runtime/blueprint/generate/
+    Accepts: { "message": str, "history": list }
+    Transforms natural language prompt into structured AgentBlueprint.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        message = request.data.get("message", "").strip()
+        if not message:
+            return Response({"error": "Field 'message' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        history = request.data.get("history", [])
+        from .blueprint import AgentBlueprintService
+
+        result = AgentBlueprintService.generate(message, history=history)
+        return Response(result)
+
+
+class BlueprintActivateView(APIView):
+    """
+    POST /api/agent-runtime/blueprint/activate/
+    Accepts: { "blueprint": dict, "activate": bool, "confirmation": bool }
+    Persists structured AgentBlueprint into real database models.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        blueprint_data = request.data.get("blueprint")
+        if not blueprint_data or not isinstance(blueprint_data, dict):
+            return Response({"error": "Field 'blueprint' object is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        activate = bool(request.data.get("activate", False))
+        confirmation = bool(request.data.get("confirmation", False))
+
+        # Enforce explicit human confirmation if activating
+        if activate and not confirmation:
+            return Response(
+                {"error": "CONFIRMATION_REQUIRED", "message": "Explicit confirmation is required before activation."},
+                status=status.HTTP_428_PRECONDITION_REQUIRED,
+            )
+
+        from .blueprint import AgentBlueprintService
+
+        try:
+            agent = AgentBlueprintService.provision_blueprint(
+                blueprint_data=blueprint_data,
+                status="ACTIVE" if activate else "DRAFT",
+                user=request.user,
+            )
+            return Response(AgentSerializer(agent).data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            logger.error(f"Failed to provision blueprint: {e}", exc_info=True)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class RefundSpikeRunView(APIView):
+    """
+    POST /api/agent-runtime/refund-spike-analyzer/run/
+    Runs an immediate autonomous analysis of refund metrics.
+    Computes deterministic rates, triggers alerts if anomaly detected, and synthesizes report.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .refund_analyzer import RefundSpikeService
+
+        baseline_rate = request.data.get("baseline_rate")
+        threshold_factor = request.data.get("threshold_factor")
+        agent_id = request.data.get("agent_id")
+
+        b_dec = Decimal(str(baseline_rate)) if baseline_rate is not None else None
+        t_dec = Decimal(str(threshold_factor)) if threshold_factor is not None else None
+
+        record = RefundSpikeService.run_analysis(
+            agent_id=agent_id,
+            baseline_rate=b_dec,
+            threshold_factor=t_dec,
+            user=request.user,
+        )
+        return Response(RefundAnomalyRecordSerializer(record).data, status=status.HTTP_200_OK)
+
+
+class RefundSpikeLatestView(APIView):
+    """
+    GET /api/agent-runtime/refund-spike-analyzer/latest/
+    Retrieves the latest refund analysis snapshot or computes one on-demand.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        latest = RefundAnomalyRecord.objects.select_related("agent", "execution").first()
+        if not latest:
+            from .refund_analyzer import RefundSpikeService
+            latest = RefundSpikeService.run_analysis(user=request.user)
+
+        return Response(RefundAnomalyRecordSerializer(latest).data)
+
+
+class RefundSpikeHistoryView(APIView):
+    """
+    GET /api/agent-runtime/refund-spike-analyzer/history/
+    Lists chronological execution timeline of past analyses.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        records = RefundAnomalyRecord.objects.select_related("agent").all()[:20]
+        return Response(RefundAnomalyRecordSerializer(records, many=True).data)
+
+
+class RefundSpikeScheduleView(APIView):
+    """
+    POST /api/agent-runtime/refund-spike-analyzer/schedule/
+    Payload: { "is_active": bool, "cron": str, "frequency": str }
+    Configures or toggles the automated scheduled execution trigger.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .models import Agent, AgentTrigger, TriggerType
+        agent = Agent.objects.filter(name__icontains="Refund Spike Analyzer").first()
+        if not agent:
+            # Auto provision default agent if missing
+            from .marketplace_templates import PREBUILT_AGENT_TEMPLATES
+            tmpl = next((t for t in PREBUILT_AGENT_TEMPLATES if t["id"] == "refund-spike-analyzer"), None)
+            if tmpl:
+                from .views import AgentViewSet
+                agent = Agent.objects.create(
+                    name=tmpl["name"],
+                    description=tmpl["description"],
+                    system_prompt=tmpl["system_prompt"],
+                    status="ACTIVE",
+                    approval_mode=tmpl["approval_mode"],
+                    risk_level=tmpl["risk_level"],
+                )
+
+        if not agent:
+            return Response({"error": "Refund Spike Analyzer agent not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        is_active = bool(request.data.get("is_active", True))
+        cron_expr = request.data.get("cron", "0 9 * * *")
+        frequency = request.data.get("frequency", "daily")
+
+        trigger, _ = AgentTrigger.objects.get_or_create(
+            agent=agent,
+            trigger_type=TriggerType.SCHEDULE,
+            defaults={
+                "name": "Refund Spike Daily Schedule",
+                "configuration": {"cron": cron_expr, "frequency": frequency},
+                "is_active": is_active,
+            },
+        )
+        trigger.is_active = is_active
+        trigger.configuration = {"cron": cron_expr, "frequency": frequency}
+        trigger.save()
+
+        return Response({
+            "status": "SCHEDULE_UPDATED",
+            "is_active": trigger.is_active,
+            "trigger_id": str(trigger.id),
+            "configuration": trigger.configuration,
+        })
+
+
+class CommerceChatView(APIView):
+    """
+    POST /api/agent-runtime/commerce/chat/
+    Conversational Agentic Commerce interface.
+    Handles product searching, comparisons, cart calculation, and payment intent generation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        message = request.data.get("message", "").strip()
+        if not message:
+            return Response({"error": "Field 'message' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        history = request.data.get("history", [])
+        from .commerce_assistant import AgenticCommerceService
+
+        res = AgenticCommerceService.handle_chat(
+            user_message=message,
+            history=history,
+            user=request.user,
+        )
+        return Response(res)
+
+
+class CommerceConsentView(APIView):
+    """
+    GET & POST /api/agent-runtime/commerce/consent/
+    Inspects or updates the user's consent authorization policy.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .models import AgentUserConsentPolicy
+        policy, _ = AgentUserConsentPolicy.objects.get_or_create(
+            user=request.user,
+            defaults={
+                "per_transaction_limit": Decimal("5000.00"),
+                "approval_threshold": Decimal("2000.00"),
+                "daily_limit": Decimal("10000.00"),
+                "monthly_limit": Decimal("50000.00"),
+                "allowed_categories": ["electronics", "peripherals", "accessories", "apparel", "home"],
+            },
+        )
+        return Response({
+            "per_transaction_limit": float(policy.per_transaction_limit),
+            "approval_threshold": float(policy.approval_threshold),
+            "daily_limit": float(policy.daily_limit),
+            "monthly_limit": float(policy.monthly_limit),
+            "allowed_categories": policy.allowed_categories,
+            "daily_spent": float(policy.daily_spent),
+            "monthly_spent": float(policy.monthly_spent),
+        })
+
+    def post(self, request):
+        from .models import AgentUserConsentPolicy
+        policy, _ = AgentUserConsentPolicy.objects.get_or_create(user=request.user)
+
+        data = request.data
+        if "per_transaction_limit" in data:
+            policy.per_transaction_limit = Decimal(str(data["per_transaction_limit"]))
+        if "approval_threshold" in data:
+            policy.approval_threshold = Decimal(str(data["approval_threshold"]))
+        if "daily_limit" in data:
+            policy.daily_limit = Decimal(str(data["daily_limit"]))
+        if "monthly_limit" in data:
+            policy.monthly_limit = Decimal(str(data["monthly_limit"]))
+        if "allowed_categories" in data and isinstance(data["allowed_categories"], list):
+            policy.allowed_categories = data["allowed_categories"]
+
+        policy.save()
+        return Response({
+            "status": "CONSENT_UPDATED",
+            "per_transaction_limit": float(policy.per_transaction_limit),
+            "approval_threshold": float(policy.approval_threshold),
+            "daily_limit": float(policy.daily_limit),
+            "monthly_limit": float(policy.monthly_limit),
+            "allowed_categories": policy.allowed_categories,
+        })
+
+
+class CommerceApproveView(APIView):
+    """
+    POST /api/agent-runtime/commerce/approve/
+    Payload: { "intent_id": "<uuid>" }
+    Approves the transaction approval card and executes the payment deterministically.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        intent_id = request.data.get("intent_id")
+        if not intent_id:
+            return Response({"error": "Field 'intent_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .commerce_assistant import DeterministicCommerceTools
+
+        try:
+            res = DeterministicCommerceTools.executePayment(intent_id=intent_id, user=request.user)
+            return Response(res, status=status.HTTP_200_OK)
+        except Exception as e:
+            logger.error(f"Failed to execute payment approval: {e}", exc_info=True)
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CommerceRejectView(APIView):
+    """
+    POST /api/agent-runtime/commerce/reject/
+    Payload: { "intent_id": "<uuid>", "reason": str }
+    Rejects the transaction approval card.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        intent_id = request.data.get("intent_id")
+        if not intent_id:
+            return Response({"error": "Field 'intent_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .models import CommercePaymentIntent
+        intent = CommercePaymentIntent.objects.filter(id=intent_id, user=request.user).first()
+        if not intent:
+            return Response({"error": "Payment intent not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        intent.status = CommercePaymentIntent.IntentStatus.REJECTED
+        intent.reason = request.data.get("reason", "Rejected by user from approval card")
+        intent.save(update_fields=["status", "reason"])
+
+        return Response({
+            "status": "REJECTED",
+            "intent_id": str(intent.id),
+            "message": "Transaction card rejected. Cart items preserved.",
+        })
+
+
+

@@ -1,7 +1,9 @@
 import uuid
+from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+
 
 
 class AgentStatus(models.TextChoices):
@@ -84,6 +86,8 @@ class ApprovalStatus(models.TextChoices):
 
 
 class AuditEventType(models.TextChoices):
+    AGENT_CREATED = "AGENT_CREATED", "Agent Created"
+    AGENT_CONFIGURED = "AGENT_CONFIGURED", "Agent Configured"
     EXECUTION_START = "EXECUTION_START", "Execution Start"
     INTENT_IDENTIFIED = "INTENT_IDENTIFIED", "Intent Identified"
     TOOL_SELECTED = "TOOL_SELECTED", "Tool Selected"
@@ -95,6 +99,7 @@ class AuditEventType(models.TextChoices):
     RESULT_VALIDATED = "RESULT_VALIDATED", "Result Validated"
     EXECUTION_COMPLETED = "EXECUTION_COMPLETED", "Execution Completed"
     EXECUTION_FAILED = "EXECUTION_FAILED", "Execution Failed"
+
 
 
 class AuditSeverity(models.TextChoices):
@@ -594,3 +599,105 @@ class AgentMemory(models.Model):
 
     def __str__(self):
         return f"{self.agent.name}: {self.key} ({self.memory_type})"
+
+
+# ── 11. REFUND ANOMALY RECORD (REFUND SPIKE ANALYZER) ────────────────────────
+class RefundAnomalyRecord(models.Model):
+    """
+    Persistent audit snapshot produced by the autonomous Refund Spike Analyzer agent.
+    Captures deterministic calculations alongside LLM explanations and recommendations.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name="refund_anomalies", null=True, blank=True)
+    execution = models.ForeignKey(AgentExecution, on_delete=models.SET_NULL, null=True, blank=True, related_name="refund_anomalies")
+
+    # Deterministic metrics
+    current_refund_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"))
+    baseline_refund_rate = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("4.20"))
+    delta = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("0.00"))
+    threshold_multiplier = models.DecimalField(max_digits=5, decimal_places=2, default=Decimal("1.50"))
+    is_anomaly = models.BooleanField(default=False)
+    severity = models.CharField(max_length=20, default="LOW")
+    refund_count = models.PositiveIntegerField(default=0)
+    total_orders_count = models.PositiveIntegerField(default=0)
+    refund_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+    total_sales_amount = models.DecimalField(max_digits=12, decimal_places=2, default=Decimal("0.00"))
+
+    # Breakdowns (Deterministic)
+    affected_products = models.JSONField(default=list, blank=True)
+    by_product = models.JSONField(default=list, blank=True)
+    by_customer = models.JSONField(default=list, blank=True)
+    by_payment_method = models.JSONField(default=list, blank=True)
+    by_day = models.JSONField(default=list, blank=True)
+
+    # LLM Syntheses
+    explanation = models.TextField(blank=True)
+    likely_reasons = models.JSONField(default=list, blank=True)
+    recommended_actions = models.JSONField(default=list, blank=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Refund Spike Analysis {self.id} - {self.severity} (Rate: {self.current_refund_rate}% vs {self.baseline_refund_rate}%)"
+
+
+# ── 12. AGENT USER CONSENT POLICY ────────────────────────────────────────────
+class AgentUserConsentPolicy(models.Model):
+    """
+    User-defined authorization parameters for simulated agentic commerce payments.
+    Governs auto-approval ceilings, confirmation thresholds, and category restrictions.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agent_consent_policy")
+    per_transaction_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("5000.00"))
+    approval_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("2000.00"))
+    daily_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("10000.00"))
+    monthly_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("50000.00"))
+    allowed_categories = models.JSONField(default=list)
+    daily_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    monthly_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"Consent Policy: {self.user.email} (Max: ₹{self.per_transaction_limit}, Auto < ₹{self.approval_threshold})"
+
+
+# ── 13. COMMERCE PAYMENT INTENT ──────────────────────────────────────────────
+class CommercePaymentIntent(models.Model):
+    """
+    Structured payment intent produced by the Agentic Commerce Assistant.
+    Gates execution behind explicit transaction approval cards and deterministic firewalls.
+    """
+    class IntentStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        REQUIRES_CONFIRMATION = "REQUIRES_CONFIRMATION", "Requires Human Confirmation"
+        APPROVED = "APPROVED", "Approved by User"
+        REJECTED = "REJECTED", "Rejected by User"
+        EXECUTED = "EXECUTED", "Executed Successfully"
+        BLOCKED = "BLOCKED", "Blocked by Governance Policy"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="commerce_payment_intents")
+    order = models.ForeignKey("orders.Order", on_delete=models.SET_NULL, null=True, blank=True, related_name="agent_payment_intents")
+    cart_snapshot = models.JSONField(default=dict, blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    merchant = models.CharField(max_length=120, default="RazorHub Direct")
+    product_summary = models.CharField(max_length=255)
+    payment_method = models.CharField(max_length=50, default="Razorpay UPI (Test Simulation)")
+    status = models.CharField(max_length=30, choices=IntentStatus.choices, default=IntentStatus.PENDING)
+    reason = models.CharField(max_length=255, blank=True)
+    risk_level = models.CharField(max_length=20, default="LOW")
+    policy_triggered = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    executed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"PaymentIntent {self.id} - ₹{self.amount} [{self.status}]"
+
+

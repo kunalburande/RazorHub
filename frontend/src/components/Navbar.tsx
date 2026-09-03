@@ -15,6 +15,8 @@ import {
   ChevronDown,
   ArrowRight,
   Flame,
+  Bot,
+
 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
@@ -419,6 +421,13 @@ export default function Navbar() {
 
             <div className="flex items-center gap-3 shrink-0 pl-4 border-l border-border/60 text-xs font-semibold">
               <Link
+                to="/agents"
+                className="flex items-center gap-1 text-secondary hover:text-accent transition-colors"
+              >
+                <Bot className="h-3.5 w-3.5 text-indigo-500" />
+                <span>Agent Studio</span>
+              </Link>
+              <Link
                 to="/seller"
                 className="text-secondary hover:text-accent transition-colors"
               >
@@ -431,6 +440,7 @@ export default function Navbar() {
                 Docs
               </Link>
             </div>
+
           </div>
         </div>
       </div>
