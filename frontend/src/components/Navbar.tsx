@@ -16,8 +16,9 @@ import {
   ArrowRight,
   Flame,
   Bot,
-
+  Building2,
 } from 'lucide-react';
+
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from './ThemeToggle';
@@ -421,12 +422,20 @@ export default function Navbar() {
 
             <div className="flex items-center gap-3 shrink-0 pl-4 border-l border-border/60 text-xs font-semibold">
               <Link
+                to="/banking"
+                className="flex items-center gap-1 text-indigo-600 dark:text-indigo-400 hover:text-accent font-bold transition-colors"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                <span>Banking</span>
+              </Link>
+              <Link
                 to="/agents"
                 className="flex items-center gap-1 text-secondary hover:text-accent transition-colors"
               >
                 <Bot className="h-3.5 w-3.5 text-indigo-500" />
                 <span>Agent Studio</span>
               </Link>
+
               <Link
                 to="/seller"
                 className="text-secondary hover:text-accent transition-colors"
@@ -573,12 +582,27 @@ export default function Navbar() {
                 </Link>
                 <Link
                   onClick={closeMenu}
+                  to="/banking"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-bold text-indigo-600 dark:text-indigo-400 hover:bg-muted"
+                >
+                  <Building2 className="h-4 w-4" /> Business Banking
+                </Link>
+                <Link
+                  onClick={closeMenu}
+                  to="/agents"
+                  className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-primary hover:bg-muted"
+                >
+                  <Bot className="h-4 w-4 text-indigo-500" /> Agent Studio
+                </Link>
+                <Link
+                  onClick={closeMenu}
                   to="/seller"
                   className="block rounded-lg px-3 py-2 text-sm font-semibold text-secondary hover:bg-muted"
                 >
                   Seller Dashboard
                 </Link>
               </div>
+
 
               <div className="border-t border-border pt-3">
                 <span className="block text-[11px] font-bold uppercase tracking-wider text-secondary mb-2">

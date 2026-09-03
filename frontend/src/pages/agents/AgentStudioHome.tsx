@@ -202,8 +202,17 @@ export default function AgentStudioHome() {
               <Plus className="w-4 h-4" />
               Custom Agent Builder
             </Link>
+
+            <Link
+              to="/agents/authorizations"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 backdrop-blur-md transition-all active:scale-95"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              Payment Authorizations
+            </Link>
           </div>
         </div>
+
 
         {/* Live Metrics Ribbon */}
         <div className="mt-8 pt-6 border-t border-white/10 grid grid-cols-2 sm:grid-cols-4 gap-4">

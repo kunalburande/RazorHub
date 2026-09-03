@@ -13,7 +13,11 @@ from .models import (
     AgentGovernancePolicy,
     GovernanceDecisionRecord,
     RefundAnomalyRecord,
+    AgentPaymentAuthorization,
+    AgentAuthorizationLedger,
 )
+from decimal import Decimal
+
 
 
 
@@ -197,4 +201,51 @@ class RefundAnomalyRecordSerializer(serializers.ModelSerializer):
     class Meta:
         model = RefundAnomalyRecord
         fields = "__all__"
+
+
+class AgentAuthorizationLedgerSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AgentAuthorizationLedger
+        fields = "__all__"
+
+
+class AgentPaymentAuthorizationSerializer(serializers.ModelSerializer):
+    agent_name = serializers.CharField(source="agent.name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    remaining_today = serializers.SerializerMethodField()
+    remaining_month = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AgentPaymentAuthorization
+        fields = [
+            "id",
+            "user",
+            "user_email",
+            "agent",
+            "agent_name",
+            "max_transaction_amount",
+            "daily_limit",
+            "monthly_limit",
+            "used_today",
+            "used_this_month",
+            "remaining_today",
+            "remaining_month",
+            "allowed_categories",
+            "blocked_categories",
+            "allowed_merchants",
+            "blocked_merchants",
+            "approval_threshold",
+            "status",
+            "expires_at",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = ["user", "used_today", "used_this_month", "created_at", "updated_at"]
+
+    def get_remaining_today(self, obj):
+        return float(max(Decimal("0.00"), obj.daily_limit - obj.used_today))
+
+    def get_remaining_month(self, obj):
+        return float(max(Decimal("0.00"), obj.monthly_limit - obj.used_this_month))
+
 

@@ -44,6 +44,10 @@ const AgentConfigurationPage = lazy(() => import('./pages/agents/AgentConfigurat
 const AgentExecutionsPage = lazy(() => import('./pages/agents/AgentExecutionsPage'));
 const AgentAuditPage = lazy(() => import('./pages/agents/AgentAuditPage'));
 const RefundSpikeAnalyzerPage = lazy(() => import('./pages/agents/RefundSpikeAnalyzerPage'));
+const AgentAuthorizationsPage = lazy(() => import('./pages/agents/AgentAuthorizationsPage'));
+const BusinessBankingPage = lazy(() => import('./pages/banking/BusinessBankingPage'));
+
+
 
 
 
@@ -118,7 +122,11 @@ function App() {
                       <Route path="/agents/marketplace" element={<AgentMarketplace />} />
                       <Route path="/agents/create" element={<AgentBuilder />} />
                       <Route path="/agents/refund-spike-analyzer" element={<RefundSpikeAnalyzerPage />} />
+                      <Route path="/agents/authorizations" element={<AgentAuthorizationsPage />} />
+                      <Route path="/banking" element={<BusinessBankingPage />} />
                       <Route path="/agents/:id" element={<AgentDetails />} />
+
+
                       <Route path="/agents/:id/configuration" element={<AgentConfigurationPage />} />
                       <Route path="/agents/:id/executions" element={<AgentExecutionsPage />} />
                       <Route path="/agents/:id/audit" element={<AgentAuditPage />} />

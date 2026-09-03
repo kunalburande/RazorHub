@@ -4,6 +4,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
+
 
 logger = logging.getLogger(__name__)
 
@@ -19,6 +21,7 @@ from .models import (
     AgentGovernancePolicy,
     GovernanceDecisionRecord,
     RefundAnomalyRecord,
+    AgentPaymentAuthorization,
 )
 from .serializers import (
     AgentSerializer,
@@ -30,9 +33,11 @@ from .serializers import (
     AgentGovernancePolicySerializer,
     GovernanceDecisionRecordSerializer,
     RefundAnomalyRecordSerializer,
+    AgentPaymentAuthorizationSerializer,
 )
 from decimal import Decimal
 from .runtime import AgentRuntime
+
 
 
 
@@ -646,6 +651,257 @@ class CommerceRejectView(APIView):
             "intent_id": str(intent.id),
             "message": "Transaction card rejected. Cart items preserved.",
         })
+
+
+class AgentPaymentAuthorizationViewSet(viewsets.ModelViewSet):
+    """
+    CRUD and lifecycle operations for simulated agent payment authorizations.
+    Inspired by consent-based pre-authorized payment models (UPI Reserve Pay concepts).
+    """
+    serializer_class = AgentPaymentAuthorizationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return AgentPaymentAuthorization.objects.filter(user=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
+
+    @action(detail=True, methods=["post"])
+    def pause(self, request, pk=None):
+        auth = self.get_object()
+        auth.status = AgentPaymentAuthorization.AuthStatus.PAUSED
+        auth.save(update_fields=["status", "updated_at"])
+        return Response({
+            "status": "PAUSED",
+            "auth_id": str(auth.id),
+            "message": f"Payment authorization for agent '{auth.agent.name}' is now paused.",
+        })
+
+    @action(detail=True, methods=["post"])
+    def resume(self, request, pk=None):
+        auth = self.get_object()
+        auth.status = AgentPaymentAuthorization.AuthStatus.ACTIVE
+        auth.save(update_fields=["status", "updated_at"])
+        return Response({
+            "status": "ACTIVE",
+            "auth_id": str(auth.id),
+            "message": f"Payment authorization for agent '{auth.agent.name}' is now active.",
+        })
+
+    @action(detail=True, methods=["post"])
+    def revoke(self, request, pk=None):
+        auth = self.get_object()
+        auth.status = AgentPaymentAuthorization.AuthStatus.REVOKED
+        auth.save(update_fields=["status", "updated_at"])
+        return Response({
+            "status": "REVOKED",
+            "auth_id": str(auth.id),
+            "message": f"Payment authorization for agent '{auth.agent.name}' has been revoked.",
+        })
+
+    @action(detail=True, methods=["patch"])
+    def limits(self, request, pk=None):
+        auth = self.get_object()
+        data = request.data
+
+        if "max_transaction_amount" in data:
+            auth.max_transaction_amount = Decimal(str(data["max_transaction_amount"]))
+        if "daily_limit" in data:
+            auth.daily_limit = Decimal(str(data["daily_limit"]))
+        if "monthly_limit" in data:
+            auth.monthly_limit = Decimal(str(data["monthly_limit"]))
+        if "approval_threshold" in data:
+            auth.approval_threshold = Decimal(str(data["approval_threshold"]))
+        if "allowed_categories" in data and isinstance(data["allowed_categories"], list):
+            auth.allowed_categories = data["allowed_categories"]
+        if "blocked_categories" in data and isinstance(data["blocked_categories"], list):
+            auth.blocked_categories = data["blocked_categories"]
+        if "allowed_merchants" in data and isinstance(data["allowed_merchants"], list):
+            auth.allowed_merchants = data["allowed_merchants"]
+        if "blocked_merchants" in data and isinstance(data["blocked_merchants"], list):
+            auth.blocked_merchants = data["blocked_merchants"]
+        if "expires_at" in data:
+            auth.expires_at = data["expires_at"]
+
+        auth.save()
+        serializer = self.get_serializer(auth)
+        return Response({
+            "status": "LIMITS_UPDATED",
+            "authorization": serializer.data,
+        })
+
+    @action(detail=True, methods=["post"])
+    def test_verify(self, request, pk=None):
+        """
+        Simulates verifying and consuming a payment against this authorization.
+        Payload: { amount, merchant, category, idempotency_key, is_confirmation }
+        """
+        auth = self.get_object()
+        amount_raw = request.data.get("amount", 0)
+        try:
+            amount = Decimal(str(amount_raw))
+        except Exception:
+            return Response({"error": "Invalid amount."}, status=status.HTTP_400_BAD_REQUEST)
+
+        merchant = request.data.get("merchant", "RazorHub Direct")
+        category = request.data.get("category", "electronics")
+        idempotency_key = request.data.get("idempotency_key", f"test_{int(timezone.now().timestamp() * 1000)}")
+        is_confirmation = bool(request.data.get("is_confirmation", False))
+
+        from .authorization_service import AgentAuthorizationService
+        res = AgentAuthorizationService.verify_and_consume(
+            auth_id=str(auth.id),
+            amount=amount,
+            merchant=merchant,
+            category=category,
+            idempotency_key=idempotency_key,
+            is_confirmation=is_confirmation,
+        )
+        return Response(res, status=status.HTTP_200_OK if res["decision"] != "BLOCKED" else status.HTTP_400_BAD_REQUEST)
+
+
+# ── 16. AGENTIC BUSINESS BANKING VIEWS ───────────────────────────────────────
+class BankingInsightsView(APIView):
+    """
+    GET /api/agent-runtime/banking/insights/
+    Returns real-time treasury indicators, cash runway, burn rate, and 30-day forecast.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .banking_agents import InsightsAgentService
+        metrics = InsightsAgentService.calculate_treasury_metrics()
+        return Response(metrics)
+
+
+class BankingReceivablesView(APIView):
+    """
+    GET & POST /api/agent-runtime/banking/receivables/
+    Lists receivables and triggers autonomous debtor follow-up communications.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .banking_agents import ReceivablesAgentService
+        invoices = ReceivablesAgentService.get_invoices()
+        return Response(invoices)
+
+    def post(self, request):
+        action_type = request.data.get("action", "followup")
+        invoice_id = request.data.get("invoice_id")
+        if not invoice_id:
+            return Response({"error": "Field 'invoice_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .banking_agents import ReceivablesAgentService
+
+        if action_type == "mark_paid":
+            res = ReceivablesAgentService.mark_invoice_paid(invoice_id)
+            return Response(res)
+
+        channel = request.data.get("channel", "EMAIL")
+        try:
+            res = ReceivablesAgentService.execute_followup(invoice_id, channel)
+            return Response(res)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BankingPayoutChatView(APIView):
+    """
+    POST /api/agent-runtime/banking/payouts/chat/
+    Conversational payout agent interface.
+    Accepts: { "prompt": "Pay Rahul ₹18,500 for invoice INV-204" }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        prompt = request.data.get("prompt", "").strip()
+        if not prompt:
+            return Response({"error": "Field 'prompt' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .banking_agents import PayoutAgentService
+        res = PayoutAgentService.resolve_payout_request(prompt, user=request.user)
+        return Response(res)
+
+
+class BankingPayoutExecuteView(APIView):
+    """
+    POST /api/agent-runtime/banking/payouts/execute/
+    Executes mock disbursement post-approval.
+    Payload: { "invoice_id": "<uuid>" }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        invoice_id = request.data.get("invoice_id")
+        if not invoice_id:
+            return Response({"error": "Field 'invoice_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .banking_agents import PayoutAgentService
+        try:
+            res = PayoutAgentService.execute_payout(invoice_id, user=request.user)
+            return Response(res)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BankingBookkeepingView(APIView):
+    """
+    GET /api/agent-runtime/banking/bookkeeping/
+    Returns categorized double-entry accounting ledger maintained by Bookkeeping Agent.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .banking_agents import BookkeepingAgentService
+        entries = BookkeepingAgentService.get_entries()
+        return Response(entries)
+
+
+class BankingReportsView(APIView):
+    """
+    GET & POST /api/agent-runtime/banking/reports/
+    Lists financial reports and triggers on-demand generation.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        from .banking_agents import ReportingAgentService
+        reports = ReportingAgentService.list_reports()
+        return Response(reports)
+
+    def post(self, request):
+        report_type = request.data.get("report_type", "DAILY").upper()
+        from .banking_agents import ReportingAgentService
+        try:
+            report = ReportingAgentService.generate_report(report_type)
+            return Response(report)
+        except Exception as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class BankingReconciliationView(APIView):
+    """
+    GET /api/agent-runtime/banking/reconciliation/
+    Returns automated bank feed vs payment gateway settlement reconciliation metrics.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response({
+            "status": "RECONCILED",
+            "last_reconciliation_time": timezone.now().isoformat(),
+            "bank_account": "HDFC Current Account **** 9104",
+            "bank_balance": 2845000.00,
+            "gateway_uncleared_settlement": 64200.00,
+            "matched_transactions_count": 1420,
+            "unmatched_items_count": 0,
+            "discrepancy_amount": 0.00,
+            "feed_health": "OPTIMAL",
+        })
+
+
 
 
 

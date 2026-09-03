@@ -20,7 +20,16 @@ from .views import (
     CommerceConsentView,
     CommerceApproveView,
     CommerceRejectView,
+    AgentPaymentAuthorizationViewSet,
+    BankingInsightsView,
+    BankingReceivablesView,
+    BankingPayoutChatView,
+    BankingPayoutExecuteView,
+    BankingBookkeepingView,
+    BankingReportsView,
+    BankingReconciliationView,
 )
+
 
 router = DefaultRouter()
 router.register(r"agents", AgentViewSet, basename="agent")
@@ -31,6 +40,8 @@ router.register(r"governance-decisions", GovernanceDecisionViewSet, basename="go
 router.register(r"executions", AgentExecutionViewSet, basename="agent-execution")
 router.register(r"approvals", AgentApprovalViewSet, basename="agent-approval")
 router.register(r"audit-logs", AgentAuditLogViewSet, basename="agent-audit-log")
+router.register(r"authorizations", AgentPaymentAuthorizationViewSet, basename="agent-payment-authorization")
+
 
 urlpatterns = [
     path("execute/", ExecuteAgentView.as_view(), name="agent-runtime-execute"),
@@ -44,8 +55,16 @@ urlpatterns = [
     path("commerce/consent/", CommerceConsentView.as_view(), name="commerce-consent"),
     path("commerce/approve/", CommerceApproveView.as_view(), name="commerce-approve"),
     path("commerce/reject/", CommerceRejectView.as_view(), name="commerce-reject"),
+    path("banking/insights/", BankingInsightsView.as_view(), name="banking-insights"),
+    path("banking/receivables/", BankingReceivablesView.as_view(), name="banking-receivables"),
+    path("banking/payouts/chat/", BankingPayoutChatView.as_view(), name="banking-payouts-chat"),
+    path("banking/payouts/execute/", BankingPayoutExecuteView.as_view(), name="banking-payouts-execute"),
+    path("banking/bookkeeping/", BankingBookkeepingView.as_view(), name="banking-bookkeeping"),
+    path("banking/reports/", BankingReportsView.as_view(), name="banking-reports"),
+    path("banking/reconciliation/", BankingReconciliationView.as_view(), name="banking-reconciliation"),
     path("", include(router.urls)),
 ]
+
 
 
 

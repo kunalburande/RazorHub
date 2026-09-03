@@ -3,6 +3,8 @@ from decimal import Decimal
 from django.db import models
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.utils import timezone
+
 
 
 
@@ -699,5 +701,237 @@ class CommercePaymentIntent(models.Model):
 
     def __str__(self):
         return f"PaymentIntent {self.id} - ₹{self.amount} [{self.status}]"
+
+
+def default_auth_allowed_categories():
+    return ["electronics", "peripherals", "accessories", "apparel", "home"]
+
+def default_auth_blocked_categories():
+    return ["cash", "gambling", "crypto"]
+
+def default_auth_allowed_merchants():
+    return ["RazorHub Direct", "SonicAudio Official Store", "boAt Lifestyle Flagship", "JBL Direct Hub"]
+
+
+# ── 14. AGENT PAYMENT AUTHORIZATION (CONSENT SANDBOX) ────────────────────────
+class AgentPaymentAuthorization(models.Model):
+    """
+    Simulated agent payment authorization inspired by consent-based pre-authorized
+    payment models (e.g. UPI Reserve Pay concepts).
+    SANDBOX / DEMONSTRATION ONLY — Not real bank authorization.
+    """
+    class AuthStatus(models.TextChoices):
+        ACTIVE = "ACTIVE", "Active"
+        PAUSED = "PAUSED", "Paused"
+        REVOKED = "REVOKED", "Revoked"
+        EXPIRED = "EXPIRED", "Expired"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="payment_authorizations")
+    agent = models.ForeignKey(Agent, on_delete=models.CASCADE, related_name="payment_authorizations")
+    max_transaction_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("5000.00"))
+    daily_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("10000.00"))
+    monthly_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("50000.00"))
+    used_today = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    used_this_month = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    allowed_categories = models.JSONField(default=default_auth_allowed_categories)
+    blocked_categories = models.JSONField(default=default_auth_blocked_categories)
+    allowed_merchants = models.JSONField(default=default_auth_allowed_merchants)
+    blocked_merchants = models.JSONField(default=list)
+    approval_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("2000.00"))
+    status = models.CharField(max_length=20, choices=AuthStatus.choices, default=AuthStatus.ACTIVE)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    last_reset_date = models.DateField(default=timezone.now)
+    last_reset_month = models.PositiveSmallIntegerField(default=1)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Auth {self.id} for Agent {self.agent.name} [{self.status}] - Max: ₹{self.max_transaction_amount}"
+
+    def check_and_reset_rollover(self):
+        """Resets used_today and used_this_month if calendar date or month has rolled over."""
+        now = timezone.now()
+        today = now.date()
+        month = now.month
+
+        updated = False
+        if self.last_reset_date != today:
+            self.used_today = Decimal("0.00")
+            self.last_reset_date = today
+            updated = True
+
+        if self.last_reset_month != month:
+            self.used_this_month = Decimal("0.00")
+            self.last_reset_month = month
+            updated = True
+
+        if self.expires_at and now > self.expires_at and self.status == self.AuthStatus.ACTIVE:
+            self.status = self.AuthStatus.EXPIRED
+            updated = True
+
+        if updated:
+            self.save(update_fields=["used_today", "used_this_month", "last_reset_date", "last_reset_month", "status", "updated_at"])
+
+
+class AgentAuthorizationLedger(models.Model):
+    """
+    Immutable ledger tracking individual authorization consumptions with idempotency keys.
+    Protects against race conditions, duplicate spends, and unauthorized re-executions.
+    """
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    authorization = models.ForeignKey(AgentPaymentAuthorization, on_delete=models.CASCADE, related_name="ledger_entries")
+    idempotency_key = models.CharField(max_length=120, unique=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    merchant = models.CharField(max_length=120)
+    category = models.CharField(max_length=80)
+    decision = models.CharField(max_length=30)
+    reason = models.CharField(max_length=255, blank=True)
+    before_today = models.DecimalField(max_digits=10, decimal_places=2)
+    after_today = models.DecimalField(max_digits=10, decimal_places=2)
+    before_month = models.DecimalField(max_digits=10, decimal_places=2)
+    after_month = models.DecimalField(max_digits=10, decimal_places=2)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Ledger {self.idempotency_key} - ₹{self.amount} ({self.decision})"
+
+
+# ── 15. AGENTIC BUSINESS BANKING ENTITIES ────────────────────────────────────
+class BusinessInvoice(models.Model):
+    """
+    Accounts Receivable & Accounts Payable ledger entity for Agentic Banking.
+    """
+    class InvoiceType(models.TextChoices):
+        RECEIVABLE = "RECEIVABLE", "Receivable (From Customer)"
+        PAYABLE = "PAYABLE", "Payable (To Vendor)"
+
+    class InvoiceStatus(models.TextChoices):
+        PENDING = "PENDING", "Pending"
+        OVERDUE = "OVERDUE", "Overdue"
+        PAID = "PAID", "Paid"
+        CANCELLED = "CANCELLED", "Cancelled"
+
+    class PriorityLevel(models.TextChoices):
+        HIGH = "HIGH", "High Priority"
+        MEDIUM = "MEDIUM", "Medium Priority"
+        LOW = "LOW", "Low Priority"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice_number = models.CharField(max_length=50, unique=True)
+    vendor_or_customer = models.CharField(max_length=150)
+    invoice_type = models.CharField(max_length=20, choices=InvoiceType.choices, default=InvoiceType.PAYABLE)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    due_date = models.DateField()
+    status = models.CharField(max_length=20, choices=InvoiceStatus.choices, default=InvoiceStatus.PENDING)
+    priority = models.CharField(max_length=20, choices=PriorityLevel.choices, default=PriorityLevel.MEDIUM)
+    follow_up_count = models.PositiveIntegerField(default=0)
+    last_follow_up_at = models.DateTimeField(null=True, blank=True)
+    bank_account_number = models.CharField(max_length=50, blank=True)
+    ifsc_code = models.CharField(max_length=20, blank=True)
+    upi_vpa = models.CharField(max_length=80, blank=True)
+    category = models.CharField(max_length=80, default="General Services")
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["due_date", "-amount"]
+
+    def __str__(self):
+        return f"{self.invoice_number} - {self.vendor_or_customer} (₹{self.amount} [{self.status}])"
+
+
+class InvoiceFollowUp(models.Model):
+    """
+    Communication log recorded by the autonomous Receivables Agent.
+    """
+    class Channel(models.TextChoices):
+        EMAIL = "EMAIL", "Email"
+        WHATSAPP = "WHATSAPP", "WhatsApp"
+        SMS = "SMS", "SMS"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    invoice = models.ForeignKey(BusinessInvoice, on_delete=models.CASCADE, related_name="follow_ups")
+    channel = models.CharField(max_length=20, choices=Channel.choices, default=Channel.EMAIL)
+    message = models.TextField()
+    sent_by = models.CharField(max_length=80, default="Receivables Agent")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"FollowUp on {self.invoice.invoice_number} via {self.channel}"
+
+
+class BookkeepingEntry(models.Model):
+    """
+    Automated double-entry accounting ledger maintained by the Bookkeeping Agent.
+    """
+    class EntryType(models.TextChoices):
+        DEBIT = "DEBIT", "Debit (Expense / Outflow)"
+        CREDIT = "CREDIT", "Credit (Revenue / Inflow)"
+
+    class AccountingCategory(models.TextChoices):
+        REVENUE_SALES = "REVENUE_SALES", "Operating Revenue - E-Commerce Sales"
+        PAYROLL_CONTRACTORS = "PAYROLL_CONTRACTORS", "Operating Expense - Vendor & Contractor Payouts"
+        CLOUD_INFRASTRUCTURE = "CLOUD_INFRASTRUCTURE", "Technology - Cloud & Hosting Infrastructure"
+        SOFTWARE_LICENSES = "SOFTWARE_LICENSES", "Technology - Software & SaaS Subscriptions"
+        LOGISTICS_SHIPPING = "LOGISTICS_SHIPPING", "Cost of Goods - Shipping & Fulfillment"
+        REFUND_EXPENSE = "REFUND_EXPENSE", "Contra Revenue - Customer Refunds"
+        TAX_GST = "TAX_GST", "Taxes - Goods & Services Tax (GST)"
+        GENERAL_ADMIN = "GENERAL_ADMIN", "Administrative & Office Overhead"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    transaction_reference = models.CharField(max_length=120)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    entry_type = models.CharField(max_length=20, choices=EntryType.choices)
+    accounting_category = models.CharField(max_length=50, choices=AccountingCategory.choices)
+    tax_deductible = models.BooleanField(default=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.transaction_reference} - {self.accounting_category} (₹{self.amount} {self.entry_type})"
+
+
+class BusinessFinanceReport(models.Model):
+    """
+    Structured periodic intelligence report produced by the Reporting Agent.
+    """
+    class ReportType(models.TextChoices):
+        DAILY = "DAILY", "Daily Finance Pulse"
+        WEEKLY = "WEEKLY", "Weekly Treasury Summary"
+        MONTHLY = "MONTHLY", "Monthly Comprehensive Report"
+        ANOMALY = "ANOMALY", "Anomaly & Drift Diagnostic"
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    report_type = models.CharField(max_length=20, choices=ReportType.choices)
+    title = models.CharField(max_length=200)
+    period_start = models.DateField()
+    period_end = models.DateField()
+    metrics_snapshot = models.JSONField(default=dict)
+    narrative_summary = models.TextField()
+    anomalies_detected = models.JSONField(default=list, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.title} ({self.report_type}) - {self.created_at.strftime('%Y-%m-%d')}"
+
+
 
 
