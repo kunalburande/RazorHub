@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import type { ProductType } from '../lib/products';
 import { price } from '../lib/products';
+import { apiRequest } from '../lib/api';
 
 export interface CartItem {
   product: ProductType;
@@ -118,11 +119,21 @@ function normalizeCartItem(item: unknown): CartItem | null {
   };
 }
 
+function getStorageKey(user: any, isDemo: boolean): string {
+  if (isDemo) return 'razorhub_cart_demo';
+  if (user?.id) return `razorhub_cart_user_${user.id}`;
+  if (user?.email) return `razorhub_cart_user_${encodeURIComponent(user.email)}`;
+  return 'razorhub_cart_guest';
+}
+
 export function CartProvider({ children }: { children: ReactNode }) {
-  const { isDemo } = useAuth();
+  const { user, isDemo, token } = useAuth();
+  const storageKey = useMemo(() => getStorageKey(user, isDemo), [user?.id, user?.email, isDemo]);
   const [items, setItems] = useState<CartItem[]>(() => {
+    if (isDemo) return [];
     try {
-      const stored = localStorage.getItem(CART_KEY);
+      const initialKey = getStorageKey(user, isDemo);
+      const stored = localStorage.getItem(initialKey);
       if (!stored) return [];
       const parsed = JSON.parse(stored);
       return Array.isArray(parsed) ? parsed.map(normalizeCartItem).filter(Boolean) as CartItem[] : [];
@@ -131,31 +142,108 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   });
 
-  // Demo sessions are memory-only: entering demo clears the cart,
-  // and demo cart changes are never persisted (gone after refresh).
-  useEffect(() => {
-    if (isDemo) setItems([]);
-  }, [isDemo]);
+  const isInitialSyncRef = useRef(false);
+  const syncTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Persist to localStorage on every change (never for demo sessions)
+  // When user / account changes, switch cart to that user's scoped cart and sync from database
+  useEffect(() => {
+    isInitialSyncRef.current = false;
+    if (isDemo) {
+      setItems([]);
+      return;
+    }
+
+    // 1. First populate from user's scoped localStorage key immediately
+    try {
+      const stored = localStorage.getItem(storageKey);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) {
+          setItems(parsed.map(normalizeCartItem).filter(Boolean) as CartItem[]);
+        } else {
+          setItems([]);
+        }
+      } else {
+        setItems([]);
+      }
+    } catch {
+      setItems([]);
+    }
+
+    // 2. If authenticated, fetch live cart from database
+    if (token && !token.startsWith('__demo_')) {
+      apiRequest<{ items: { product: ProductType; quantity: number }[] }>('/cart/', { token })
+        .then((res) => {
+          if (res && Array.isArray(res.items)) {
+            const dbItems = res.items.map(normalizeCartItem).filter(Boolean) as CartItem[];
+            if (dbItems.length > 0) {
+              setItems(dbItems);
+              try {
+                localStorage.setItem(storageKey, JSON.stringify(dbItems));
+              } catch {}
+            } else {
+              // If DB cart is empty, check if user had items in scoped local cache and push up
+              const localStored = localStorage.getItem(storageKey);
+              if (localStored) {
+                try {
+                  const parsedLocal = JSON.parse(localStored);
+                  if (Array.isArray(parsedLocal) && parsedLocal.length > 0) {
+                    const normalized = parsedLocal.map(normalizeCartItem).filter(Boolean) as CartItem[];
+                    if (normalized.length > 0) {
+                      apiRequest('/cart/', {
+                        method: 'POST',
+                        token,
+                        body: JSON.stringify({
+                          items: normalized.map((it) => ({
+                            product_id: it.product.id,
+                            quantity: it.quantity,
+                          })),
+                        }),
+                      }).catch(() => {});
+                    }
+                  }
+                } catch {}
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('[Cart] Error fetching user cart from database:', err);
+        })
+        .finally(() => {
+          isInitialSyncRef.current = true;
+        });
+    } else {
+      isInitialSyncRef.current = true;
+    }
+  }, [storageKey, token, isDemo]);
+
+  // Persist to user-scoped localStorage and debounce sync to DB
   useEffect(() => {
     if (isDemo) return;
+
     try {
-      localStorage.setItem(CART_KEY, JSON.stringify(items));
+      localStorage.setItem(storageKey, JSON.stringify(items));
     } catch (e) {
-      // Handle quota exceeded or other storage errors
       console.warn('[Cart] Failed to persist to localStorage:', e);
-      if (e instanceof DOMException && e.name === 'QuotaExceededError') {
-        // Try to clear old data and retry
-        try {
-          localStorage.removeItem(CART_KEY);
-          localStorage.setItem(CART_KEY, JSON.stringify(items));
-        } catch {
-          // Give up on persistence
-        }
-      }
     }
-  }, [items, isDemo]);
+
+    if (isInitialSyncRef.current && token && !token.startsWith('__demo_')) {
+      if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+      syncTimeoutRef.current = setTimeout(() => {
+        apiRequest('/cart/', {
+          method: 'POST',
+          token,
+          body: JSON.stringify({
+            items: items.map((it) => ({
+              product_id: it.product.id,
+              quantity: it.quantity,
+            })),
+          }),
+        }).catch((e) => console.warn('[Cart] DB sync failed:', e));
+      }, 600);
+    }
+  }, [items, storageKey, token, isDemo]);
 
   const totalCount = useMemo(() => items.reduce((sum, item) => sum + item.quantity, 0), [items]);
   const totalPrice = useMemo(() => items.reduce((sum, item) => {

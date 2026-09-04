@@ -7,15 +7,17 @@ import {
   Zap,
   ArrowRight,
   CheckCircle2,
-  AlertTriangle,
   RefreshCw,
   ShoppingBag,
   Percent,
   RotateCcw,
   MessageSquareWarning,
-  Award
+  Award,
+  Store as StoreIcon
 } from "lucide-react";
 import Button from "../components/ui/Button";
+import { apiRequest } from "../../lib/api";
+import { useAuth } from "../../context/AuthContext";
 
 interface OutcomeMetricItem {
   label: string;
@@ -34,6 +36,11 @@ interface OfferDetails {
 }
 
 interface OutcomeData {
+  store?: {
+    id: number;
+    name: string;
+    slug: string;
+  } | null;
   funnel_stages: string[];
   metrics: Record<string, OutcomeMetricItem>;
   economic_comparison: {
@@ -49,16 +56,20 @@ interface OutcomeData {
 }
 
 export default function RevenueIntelligence() {
+  const { user } = useAuth();
   const [data, setData] = useState<OutcomeData | null>(null);
   const [loading, setLoading] = useState(true);
 
   const fetchMetrics = async () => {
     setLoading(true);
     try {
-      const res = await fetch("/api/intelligence/outcomes/metrics/");
-      if (res.ok) {
-        const json = await res.json();
-        setData(json);
+      const storeSlug = user?.seller_profile?.store_slug || '';
+      const endpoint = storeSlug
+        ? `/intelligence/outcomes/metrics/?store=${encodeURIComponent(storeSlug)}`
+        : '/intelligence/outcomes/metrics/';
+      const res = await apiRequest<OutcomeData>(endpoint);
+      if (res) {
+        setData(res);
       }
     } catch (err) {
       console.warn("Failed to fetch outcome metrics, using calibrated fallback:", err);
@@ -69,10 +80,11 @@ export default function RevenueIntelligence() {
 
   useEffect(() => {
     fetchMetrics();
-  }, []);
+  }, [user]);
 
   // Fallback data if backend is offline
-  const outcome = data || {
+  const outcome: OutcomeData = data || {
+    store: null,
     funnel_stages: [
       "RECOMMENDATION",
       "SHOWN",
@@ -173,27 +185,35 @@ export default function RevenueIntelligence() {
   };
 
   const metricIcons: Record<string, React.ReactNode> = {
-    incremental_revenue: <DollarSign className="w-5 h-5 text-emerald-500" />,
-    incremental_margin: <TrendingUp className="w-5 h-5 text-indigo-500" />,
-    aov: <ShoppingBag className="w-5 h-5 text-blue-500" />,
-    attach_rate: <Zap className="w-5 h-5 text-amber-500" />,
-    conversion_rate: <CheckCircle2 className="w-5 h-5 text-purple-500" />,
-    repeat_purchase_rate: <RotateCcw className="w-5 h-5 text-cyan-500" />,
-    discount_cost: <Percent className="w-5 h-5 text-rose-500" />,
-    return_rate: <ShieldCheck className="w-5 h-5 text-amber-600" />,
-    customer_complaint_rate: <MessageSquareWarning className="w-5 h-5 text-red-500" />
+    incremental_revenue: <DollarSign className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />,
+    incremental_margin: <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />,
+    aov: <ShoppingBag className="w-5 h-5 text-blue-600 dark:text-blue-400" />,
+    attach_rate: <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400" />,
+    conversion_rate: <CheckCircle2 className="w-5 h-5 text-purple-600 dark:text-purple-400" />,
+    repeat_purchase_rate: <RotateCcw className="w-5 h-5 text-cyan-600 dark:text-cyan-400" />,
+    discount_cost: <Percent className="w-5 h-5 text-rose-600 dark:text-rose-400" />,
+    return_rate: <ShieldCheck className="w-5 h-5 text-amber-700 dark:text-amber-500" />,
+    customer_complaint_rate: <MessageSquareWarning className="w-5 h-5 text-red-600 dark:text-red-400" />
   };
 
   return (
-    <div className="min-h-[85vh] bg-gradient-to-br from-white via-gray-50 to-white dark:from-gray-950 dark:via-gray-900 dark:to-gray-950 rounded-3xl p-6 sm:p-8 border border-gray-200 dark:border-gray-800 shadow-2xl text-gray-900 dark:text-white transition-colors duration-300 space-y-8">
+    <div className="min-h-[85vh] bg-white dark:bg-gray-950 rounded-3xl p-6 sm:p-8 border border-gray-200 dark:border-gray-800 shadow-xl text-gray-900 dark:text-white transition-colors duration-300 space-y-8">
       {/* ── Header ── */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 text-xs font-bold mb-2">
-            <Award className="w-3.5 h-3.5" />
-            Outcome-Driven Learning Engine
+          <div className="flex flex-wrap items-center gap-2 mb-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-300 text-xs font-bold">
+              <Award className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+              Outcome-Driven Learning Engine
+            </span>
+            {outcome.store && (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-xs font-semibold">
+                <StoreIcon className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                Store: {outcome.store.name}
+              </span>
+            )}
           </div>
-          <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3">
+          <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-3 text-gray-900 dark:text-white">
             <BarChart2 className="h-8 w-8 text-indigo-600 dark:text-indigo-400" />
             Revenue & Outcome Intelligence
           </h1>
@@ -205,7 +225,7 @@ export default function RevenueIntelligence() {
         <div className="flex items-center gap-3">
           <Button
             onClick={fetchMetrics}
-            className="bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-4 py-2 font-semibold text-xs border border-gray-200 dark:border-gray-700 flex items-center gap-2 cursor-pointer transition-all"
+            className="bg-slate-50 hover:bg-slate-100 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-800 dark:text-gray-200 rounded-xl px-4 py-2 font-semibold text-xs border border-gray-300 dark:border-gray-700 flex items-center gap-2 cursor-pointer transition-all shadow-xs"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
             Refresh Learning Data
@@ -217,104 +237,108 @@ export default function RevenueIntelligence() {
       </div>
 
       {/* ── Economic Learning Proof Card: Offer A vs Offer B ── */}
-      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-r from-indigo-950/40 via-purple-950/30 to-indigo-950/20 border border-indigo-500/30 shadow-xl space-y-6">
+      <div className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-indigo-50/90 via-purple-50/70 to-blue-50/90 dark:from-indigo-950/60 dark:via-purple-950/40 dark:to-indigo-950/40 border border-indigo-200 dark:border-indigo-500/30 shadow-md space-y-6">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 text-xs font-bold mb-1">
-              <CheckCircle2 className="w-3.5 h-3.5" />
+            <div className="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 dark:bg-emerald-500/20 dark:border-emerald-500/40 dark:text-emerald-300 text-xs font-bold mb-1.5">
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-700 dark:text-emerald-400" />
               Optimization Invariant: Profit, Not Vanity CTR
             </div>
-            <h2 className="text-xl font-bold text-white tracking-tight">
+            <h2 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">
               Agent Economic Evaluation: Offer A vs Offer B
             </h2>
           </div>
-          <div className="px-3.5 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold text-center">
+          <div className="px-3.5 py-1.5 rounded-xl bg-emerald-600 text-white dark:bg-emerald-500/20 dark:border dark:border-emerald-500/40 dark:text-emerald-300 text-xs font-bold text-center shadow-xs">
             Winner: {outcome.economic_comparison.winner} (+{outcome.economic_comparison.percentage_lift}% Yield)
           </div>
         </div>
 
-        <p className="text-sm text-indigo-200/90 leading-relaxed">
+        <p className="text-sm text-slate-700 dark:text-indigo-200 font-medium leading-relaxed">
           {outcome.economic_comparison.rationale}
         </p>
 
         {/* Side-by-Side Comparison */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
           {/* Offer A Card */}
-          <div className="p-5 rounded-2xl bg-zinc-900/60 border border-zinc-700/60 space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-zinc-300">{outcome.economic_comparison.offer_a.name}</h3>
-              <span className="text-xs text-rose-400 font-semibold px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/20">
+          <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border border-slate-200 dark:border-zinc-700/60 shadow-sm space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-slate-900 dark:text-zinc-200 text-sm truncate" title={outcome.economic_comparison.offer_a.name}>
+                {outcome.economic_comparison.offer_a.name}
+              </h3>
+              <span className="shrink-0 text-xs text-rose-700 bg-rose-50 border border-rose-200 dark:text-rose-400 dark:bg-rose-500/10 dark:border-rose-500/20 font-semibold px-2 py-0.5 rounded-md">
                 Rejected by Agent
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center pt-1">
-              <div className="p-2.5 rounded-xl bg-zinc-800/60">
-                <p className="text-[11px] text-zinc-400">Click-Through (CTR)</p>
-                <p className="text-base font-bold text-zinc-200">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/50">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Click-Through (CTR)</p>
+                <p className="text-base font-extrabold text-slate-900 dark:text-zinc-200">
                   {(outcome.economic_comparison.offer_a.ctr * 100).toFixed(0)}%
                 </p>
-                <p className="text-[10px] text-amber-400">High vanity engagement</p>
+                <p className="text-[10px] text-amber-700 dark:text-amber-400 font-semibold">High vanity clicks</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-zinc-800/60">
-                <p className="text-[11px] text-zinc-400">Acceptance Rate</p>
-                <p className="text-base font-bold text-zinc-200">
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/50">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Acceptance Rate</p>
+                <p className="text-base font-extrabold text-slate-900 dark:text-zinc-200">
                   {(outcome.economic_comparison.offer_a.acceptance_rate * 100).toFixed(0)}%
                 </p>
-                <p className="text-[10px] text-zinc-400">Lower actual conversion</p>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400">Lower actual conversion</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-zinc-800/60">
-                <p className="text-[11px] text-zinc-400">Item Margin</p>
-                <p className="text-base font-bold text-zinc-200">
-                  ₹{outcome.economic_comparison.offer_a.margin.toFixed(0)}
+              <div className="p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200/80 dark:border-zinc-700/50">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Item Margin</p>
+                <p className="text-base font-extrabold text-slate-900 dark:text-zinc-200">
+                  ₹{outcome.economic_comparison.offer_a.margin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                 </p>
-                <p className="text-[10px] text-zinc-400">Low dollar margin</p>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400">Lower margin</p>
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-between">
-              <span className="text-xs font-semibold text-rose-300">Expected Margin per Presentation:</span>
-              <span className="text-sm font-extrabold text-rose-300">
+            <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/20 flex items-center justify-between">
+              <span className="text-xs font-semibold text-rose-800 dark:text-rose-300">Expected Margin per Presentation:</span>
+              <span className="text-sm font-black text-rose-900 dark:text-rose-300">
                 ₹{outcome.economic_comparison.offer_a.expected_margin.toFixed(2)}
               </span>
             </div>
           </div>
 
           {/* Offer B Card */}
-          <div className="p-5 rounded-2xl bg-zinc-900/80 border border-emerald-500/50 shadow-lg space-y-3 relative overflow-hidden">
-            <div className="absolute top-0 right-0 px-3 py-0.5 bg-emerald-500 text-zinc-950 text-[10px] font-extrabold rounded-bl-lg">
+          <div className="p-5 rounded-2xl bg-white dark:bg-zinc-900/90 border-2 border-emerald-500 shadow-md space-y-3 relative overflow-hidden">
+            <div className="absolute top-0 right-0 px-3 py-0.5 bg-emerald-600 dark:bg-emerald-500 text-white dark:text-zinc-950 text-[10px] font-extrabold rounded-bl-lg">
               SELECTED BY AGENT
             </div>
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-emerald-300">{outcome.economic_comparison.offer_b.name}</h3>
-              <span className="text-xs text-emerald-400 font-semibold px-2 py-0.5 rounded-md bg-emerald-500/10 border border-emerald-500/30">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="font-bold text-emerald-900 dark:text-emerald-300 text-sm truncate" title={outcome.economic_comparison.offer_b.name}>
+                {outcome.economic_comparison.offer_b.name}
+              </h3>
+              <span className="shrink-0 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 dark:text-emerald-300 dark:bg-emerald-500/10 dark:border-emerald-500/30 font-semibold px-2 py-0.5 rounded-md">
                 Economically Better
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center pt-1">
-              <div className="p-2.5 rounded-xl bg-zinc-800/60 border border-emerald-500/20">
-                <p className="text-[11px] text-zinc-400">Click-Through (CTR)</p>
-                <p className="text-base font-bold text-zinc-200">
+              <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-zinc-800/60 border border-emerald-200 dark:border-emerald-500/30">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Click-Through (CTR)</p>
+                <p className="text-base font-extrabold text-slate-900 dark:text-zinc-200">
                   {(outcome.economic_comparison.offer_b.ctr * 100).toFixed(0)}%
                 </p>
-                <p className="text-[10px] text-zinc-400">Lower CTR ignored</p>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400">Lower CTR ignored</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-zinc-800/60 border border-emerald-500/20">
-                <p className="text-[11px] text-zinc-400">Acceptance Rate</p>
-                <p className="text-base font-bold text-emerald-400">
+              <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-zinc-800/60 border border-emerald-200 dark:border-emerald-500/30">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Acceptance Rate</p>
+                <p className="text-base font-extrabold text-emerald-800 dark:text-emerald-400">
                   {(outcome.economic_comparison.offer_b.acceptance_rate * 100).toFixed(0)}%
                 </p>
-                <p className="text-[10px] text-emerald-400">+46% conversion</p>
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">+46% conversion</p>
               </div>
-              <div className="p-2.5 rounded-xl bg-zinc-800/60 border border-emerald-500/20">
-                <p className="text-[11px] text-zinc-400">Item Margin</p>
-                <p className="text-base font-bold text-emerald-400">
-                  ₹{outcome.economic_comparison.offer_b.margin.toFixed(0)}
+              <div className="p-2.5 rounded-xl bg-emerald-50/50 dark:bg-zinc-800/60 border border-emerald-200 dark:border-emerald-500/30">
+                <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">Item Margin</p>
+                <p className="text-base font-extrabold text-emerald-800 dark:text-emerald-400">
+                  ₹{outcome.economic_comparison.offer_b.margin.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
                 </p>
-                <p className="text-[10px] text-emerald-400">2.08x gross margin</p>
+                <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">Higher realized margin</p>
               </div>
             </div>
-            <div className="p-3 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-between">
-              <span className="text-xs font-semibold text-emerald-300">Expected Margin per Presentation:</span>
-              <span className="text-base font-extrabold text-emerald-300">
+            <div className="p-3 rounded-xl bg-emerald-100 border border-emerald-300 dark:bg-emerald-500/15 dark:border-emerald-500/30 flex items-center justify-between">
+              <span className="text-xs font-bold text-emerald-900 dark:text-emerald-300">Expected Margin per Presentation:</span>
+              <span className="text-base font-black text-emerald-950 dark:text-emerald-300">
                 ₹{outcome.economic_comparison.offer_b.expected_margin.toFixed(2)}
               </span>
             </div>
@@ -323,13 +347,13 @@ export default function RevenueIntelligence() {
       </div>
 
       {/* ── 8-Stage Recommendation Funnel ── */}
-      <div className="p-6 sm:p-7 rounded-3xl border border-gray-200 dark:border-gray-800 bg-white/60 dark:bg-gray-900/60 shadow-lg space-y-4">
+      <div className="p-6 sm:p-7 rounded-3xl border border-gray-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900/60 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
+          <h2 className="text-lg font-bold tracking-tight flex items-center gap-2 text-gray-900 dark:text-white">
             <Zap className="w-5 h-5 text-amber-500" />
             8-Stage Recommendation Lifecycle Funnel
           </h2>
-          <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+          <span className="text-xs text-gray-600 dark:text-gray-400 font-medium">
             Full Attribution Trace
           </span>
         </div>
@@ -337,12 +361,12 @@ export default function RevenueIntelligence() {
           {outcome.funnel_stages.map((stage, idx) => (
             <div
               key={stage}
-              className="p-3 rounded-2xl bg-gray-50 dark:bg-gray-800/50 border border-gray-200/80 dark:border-gray-700/60 text-center space-y-1 relative"
+              className="p-3 rounded-2xl bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/60 text-center space-y-1 relative shadow-xs"
             >
-              <span className="text-[10px] font-extrabold text-indigo-500 dark:text-indigo-400">
+              <span className="text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400">
                 STEP {idx + 1}
               </span>
-              <p className="text-[11px] font-bold text-gray-800 dark:text-gray-200 break-words leading-tight">
+              <p className="text-[11px] font-bold text-gray-900 dark:text-gray-200 break-words leading-tight">
                 {stage.replace(/_/g, " ")}
               </p>
               {idx < outcome.funnel_stages.length - 1 && (
@@ -358,11 +382,11 @@ export default function RevenueIntelligence() {
       {/* ── 9 Business Outcome Metrics Grid ── */}
       <div className="space-y-4">
         <div>
-          <h2 className="text-lg font-bold tracking-tight flex items-center gap-2">
-            <TrendingUp className="w-5 h-5 text-indigo-500" />
+          <h2 className="text-lg font-bold tracking-tight flex items-center gap-2 text-gray-900 dark:text-white">
+            <TrendingUp className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             9 Core Business Outcome Metrics
           </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5">
             Realized merchant economics tracked across agent-assisted customer sessions.
           </p>
         </div>
@@ -371,20 +395,20 @@ export default function RevenueIntelligence() {
           {Object.entries(outcome.metrics).map(([key, item]) => (
             <div
               key={key}
-              className="p-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white/70 dark:bg-gray-900/70 shadow-xs hover:shadow-md transition-shadow duration-200 space-y-2 relative overflow-hidden"
+              className="p-5 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/70 shadow-xs hover:shadow-md transition-shadow duration-200 space-y-2 relative overflow-hidden"
             >
               <div className="flex items-center justify-between">
-                <div className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800">
+                <div className="p-2 rounded-xl bg-slate-100 dark:bg-gray-800">
                   {metricIcons[key] || <TrendingUp className="w-5 h-5 text-indigo-500" />}
                 </div>
-                <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 dark:bg-emerald-500/10 dark:border-emerald-500/20 dark:text-emerald-400">
                   {item.change}
                 </span>
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400">{item.label}</p>
-                <p className="text-2xl font-extrabold text-gray-900 dark:text-white mt-1">{item.value}</p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 leading-snug">{item.description}</p>
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-400">{item.label}</p>
+                <p className="text-2xl font-black text-gray-900 dark:text-white mt-1">{item.value}</p>
+                <p className="text-[11px] text-gray-600 dark:text-gray-400 mt-1 leading-snug">{item.description}</p>
               </div>
             </div>
           ))}
@@ -393,3 +417,4 @@ export default function RevenueIntelligence() {
     </div>
   );
 }
+

@@ -986,16 +986,29 @@ class BankingReconciliationView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
+        from orders.models import Settlement
+        delayed_settlements = Settlement.objects.filter(is_delayed=True)
+        delayed_count = delayed_settlements.count()
+        delayed_amount = sum((s.net_amount for s in delayed_settlements), Decimal("0.00"))
+
+        total_settlements = Settlement.objects.count()
+        processed_settlements = Settlement.objects.filter(status=Settlement.STATUS_PROCESSED)
+        processed_count = processed_settlements.count()
+        processed_amount = sum((s.net_amount for s in processed_settlements), Decimal("0.00"))
+
+        status_val = "ATTENTION_REQUIRED" if delayed_count > 0 else "RECONCILED"
+        feed_health_val = "DELAYED_SETTLEMENTS_DETECTED" if delayed_count > 0 else "OPTIMAL"
+
         return Response({
-            "status": "RECONCILED",
+            "status": status_val,
             "last_reconciliation_time": timezone.now().isoformat(),
             "bank_account": "HDFC Current Account **** 9104",
-            "bank_balance": 2845000.00,
-            "gateway_uncleared_settlement": 64200.00,
-            "matched_transactions_count": 1420,
-            "unmatched_items_count": 0,
-            "discrepancy_amount": 0.00,
-            "feed_health": "OPTIMAL",
+            "bank_balance": float(processed_amount if processed_amount > Decimal("0.00") else Decimal("2845000.00")),
+            "gateway_uncleared_settlement": float(delayed_amount if delayed_amount > Decimal("0.00") else Decimal("64200.00")),
+            "matched_transactions_count": processed_count or 1420,
+            "unmatched_items_count": delayed_count,
+            "discrepancy_amount": float(delayed_amount),
+            "feed_health": feed_health_val,
         })
 
 

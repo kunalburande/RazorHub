@@ -3,8 +3,14 @@ from crm.models import ActivityLog, Notification
 from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import Order
-from .serializers import OrderSerializer, OrderStatusSerializer
+from .models import Order, Payment, Refund, Payout, Settlement
+from .serializers import (
+    OrderSerializer,
+    OrderStatusSerializer,
+    RefundSerializer,
+    PayoutSerializer,
+    SettlementSerializer,
+)
 
 
 class OrderViewSet(viewsets.ModelViewSet):
@@ -169,3 +175,111 @@ class RazorpayWebhookView(APIView):
             return Response({'status': 'ok'})
         except Exception as e:
             return Response({'error': str(e)}, status=500)
+
+
+from .models import Cart, CartItem
+from products.models import Product
+from products.serializers import ProductListSerializer
+
+class CartView(APIView):
+    """
+    User-scoped Cart management:
+    GET /api/cart/ -> Returns authenticated user's cart items from database.
+    POST /api/cart/ -> Synchronizes user's cart items with the database.
+    DELETE /api/cart/ -> Clears the user's cart in the database.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        items = cart.items.select_related('product', 'product__category', 'product__brand', 'product__store').prefetch_related('product__images').all()
+        data = []
+        for it in items:
+            data.append({
+                "product": ProductListSerializer(it.product, context={"request": request}).data,
+                "quantity": it.quantity
+            })
+        return Response({"items": data})
+
+    def post(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        raw_items = request.data.get("items", [])
+        
+        cart.items.all().delete()
+        new_items = []
+        for item_data in raw_items:
+            prod_id = item_data.get("product_id")
+            if not prod_id and isinstance(item_data.get("product"), dict):
+                prod_id = item_data["product"].get("id")
+            quantity = int(item_data.get("quantity", 1))
+            if prod_id and quantity > 0:
+                p = Product.objects.filter(id=prod_id).first()
+                if p:
+                    new_items.append(CartItem(cart=cart, product=p, quantity=quantity))
+        
+        if new_items:
+            CartItem.objects.bulk_create(new_items)
+            
+        items = cart.items.select_related('product', 'product__category', 'product__brand', 'product__store').prefetch_related('product__images').all()
+        data = []
+        for it in items:
+            data.append({
+                "product": ProductListSerializer(it.product, context={"request": request}).data,
+                "quantity": it.quantity
+            })
+        return Response({"items": data})
+
+    def delete(self, request):
+        cart, _ = Cart.objects.get_or_create(user=request.user)
+        cart.items.all().delete()
+        return Response({"items": []})
+
+
+class RefundViewSet(viewsets.ModelViewSet):
+    serializer_class = RefundSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.effective_role == "admin":
+            return Refund.objects.all().order_by("-created_at")
+        if user.effective_role == "seller":
+            store = getattr(getattr(user, "seller_profile", None), "store", None)
+            if store:
+                return Refund.objects.filter(order__items__product__store=store).distinct().order_by("-created_at")
+            return Refund.objects.none()
+        return Refund.objects.filter(order__user=user).order_by("-created_at")
+
+
+class PayoutViewSet(viewsets.ModelViewSet):
+    serializer_class = PayoutSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.effective_role == "admin":
+            return Payout.objects.all().order_by("-created_at")
+        if user.effective_role == "seller":
+            store = getattr(getattr(user, "seller_profile", None), "store", None)
+            if store:
+                return Payout.objects.filter(store=store).order_by("-created_at")
+        return Payout.objects.none()
+
+
+class SettlementViewSet(viewsets.ModelViewSet):
+    serializer_class = SettlementSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.effective_role == "admin":
+            return Settlement.objects.all().order_by("-settlement_date", "-created_at")
+        if user.effective_role == "seller":
+            store = getattr(getattr(user, "seller_profile", None), "store", None)
+            if store:
+                return Settlement.objects.filter(store=store).order_by("-settlement_date", "-created_at")
+        return Settlement.objects.none()
+

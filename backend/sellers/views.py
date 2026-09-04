@@ -74,9 +74,10 @@ class SellerProfileViewSet(viewsets.ModelViewSet):
         )
 
         # Top 5 products by order count
+        prod_line_total = ExpressionWrapper(F("order_items__price") * F("order_items__quantity"), output_field=DecimalField(max_digits=12, decimal_places=2))
         top_products = list(
             Product.objects.filter(store=store)
-            .annotate(order_count=Count("order_items"), total_revenue=Sum(line_total, default=0))
+            .annotate(order_count=Count("order_items"), total_revenue=Sum(prod_line_total, default=0))
             .order_by("-order_count")
             .values("id", "name", "stock", "order_count", "total_revenue")[:5]
         )

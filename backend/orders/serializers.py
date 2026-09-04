@@ -5,7 +5,7 @@ from rest_framework import serializers
 from crm.models import ActivityLog, Notification
 from products.models import Product
 from products.serializers import ProductSerializer
-from .models import Order, OrderItem, Payment
+from .models import Order, OrderItem, Payment, Refund, Payout, Settlement
 
 
 
@@ -29,8 +29,33 @@ class OrderItemSerializer(serializers.ModelSerializer):
 class PaymentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
-        fields = ["id", "method", "status", "amount", "provider_reference", "created_at", "updated_at"]
+        fields = ["id", "order", "method", "status", "amount", "provider_reference", "created_at", "updated_at"]
         read_only_fields = ["id", "status", "amount", "provider_reference", "created_at", "updated_at"]
+
+
+class RefundSerializer(serializers.ModelSerializer):
+    order_id = serializers.IntegerField(source="order.id", read_only=True)
+    customer_email = serializers.EmailField(source="order.user.email", read_only=True)
+
+    class Meta:
+        model = Refund
+        fields = ["id", "refund_id", "order", "order_id", "customer_email", "payment", "amount", "currency", "reason", "status", "notes", "created_at"]
+
+
+class PayoutSerializer(serializers.ModelSerializer):
+    store_name = serializers.CharField(source="store.name", read_only=True)
+
+    class Meta:
+        model = Payout
+        fields = ["id", "payout_id", "store", "store_name", "recipient_name", "recipient_account", "amount", "currency", "mode", "status", "utr", "narration", "created_at"]
+
+
+class SettlementSerializer(serializers.ModelSerializer):
+    store_name = serializers.CharField(source="store.name", read_only=True)
+
+    class Meta:
+        model = Settlement
+        fields = ["id", "settlement_id", "store", "store_name", "amount", "fees", "tax", "net_amount", "status", "utr", "settlement_date", "is_delayed", "notes", "created_at"]
 
 
 class OrderSerializer(serializers.ModelSerializer):

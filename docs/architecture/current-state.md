@@ -1,4 +1,4 @@
-# KinaHub — Current State Architecture
+# RazorHub — Current State Architecture
 
 ## 1. Technology Stack
 

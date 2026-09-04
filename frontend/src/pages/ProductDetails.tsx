@@ -208,99 +208,8 @@ export default function ProductDetails() {
     };
   }, [product?.average_rating, product?.rating, product?.review_count, reviews]);
 
-  if (loading) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 animate-pulse">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:gap-12">
-          <div className="aspect-square w-full rounded-xl bg-muted/60"></div>
-          <div className="flex flex-col pt-4">
-            <div className="mb-2 h-4 w-32 rounded bg-muted/60"></div>
-            <div className="mb-4 h-8 w-3/4 rounded bg-muted/60 sm:h-10"></div>
-            <div className="mb-6 h-6 w-1/4 rounded bg-muted/60"></div>
-            <div className="mb-8 space-y-2">
-              <div className="h-4 w-full rounded bg-muted/60"></div>
-              <div className="h-4 w-full rounded bg-muted/60"></div>
-              <div className="h-4 w-2/3 rounded bg-muted/60"></div>
-            </div>
-            <div className="mt-8 flex gap-4">
-              <div className="h-12 w-1/2 rounded bg-muted/60"></div>
-              <div className="h-12 w-1/2 rounded bg-muted/60"></div>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (!product) {
-    return (
-      <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
-        <h1 className="text-2xl font-bold text-primary">{t('products.notFound', { defaultValue: 'Product not found' })}</h1>
-        <p className="mt-2 text-secondary">{t('products.notFoundDesc', { defaultValue: 'The product you are looking for does not exist or has been removed.' })}</p>
-        <Link to="/products" className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white">
-          <ArrowLeft className="h-4 w-4" />
-          {t('products.backToProducts', { defaultValue: 'Back to products' })}
-        </Link>
-      </div>
-    );
-  }
-
-  const image = activeImage || productImage(product) || FALLBACK_IMAGE;
-  const subtotal = price(product) * quantity;
-
-  async function submitReview(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!product) return;
-
-    const comment = reviewForm.comment.trim();
-    const name = reviewForm.name.trim();
-    if (!name || !comment) {
-      setReviewError(t('products.reviewRequired', { defaultValue: 'Add your name and review first.' }));
-      return;
-    }
-
-    setReviewError('');
-    setReviewSubmitting(true);
-    try {
-      const formData = new FormData();
-      formData.append('product', product.slug);
-      formData.append('name', name);
-      formData.append('rating', reviewForm.rating.toString());
-      formData.append('title', reviewForm.title.trim());
-      formData.append('comment', comment);
-
-      const imgFile = imageInputRef.current?.files?.[0];
-      if (imgFile) formData.append('image', imgFile);
-
-      const vidFile = videoInputRef.current?.files?.[0];
-      if (vidFile) formData.append('video', vidFile);
-
-      const response = await fetch(`${API}/reviews/`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) throw new Error('Failed to submit review');
-
-      const created = (await response.json()) as ReviewType;
-      setReviews((current) => [created, ...current]);
-      setReviewForm({
-        name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || user.email : '',
-        rating: 5,
-        title: '',
-        comment: '',
-        image_url: '',
-        video_url: '',
-      });
-      setImagePreview(null);
-      setVideoPreview(null);
-    } catch {
-      setReviewError(t('products.reviewSubmitError', { defaultValue: 'Could not submit review right now.' }));
-    } finally {
-      setReviewSubmitting(false);
-    }
-  }
-
+  const image = activeImage || (product ? productImage(product) : null) || FALLBACK_IMAGE;
+  const subtotal = product ? price(product) * quantity : 0;
   const topUpsell = recommendations?.upsell?.[0];
 
   const productJsonLd = useMemo(() => {
@@ -365,6 +274,96 @@ export default function ProductDetails() {
       },
     };
   }, [product, image]);
+
+  async function submitReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!product) return;
+
+    const comment = reviewForm.comment.trim();
+    const name = reviewForm.name.trim();
+    if (!name || !comment) {
+      setReviewError(t('products.reviewRequired', { defaultValue: 'Add your name and review first.' }));
+      return;
+    }
+
+    setReviewError('');
+    setReviewSubmitting(true);
+    try {
+      const formData = new FormData();
+      formData.append('product', product.slug);
+      formData.append('name', name);
+      formData.append('rating', reviewForm.rating.toString());
+      formData.append('title', reviewForm.title.trim());
+      formData.append('comment', comment);
+
+      const imgFile = imageInputRef.current?.files?.[0];
+      if (imgFile) formData.append('image', imgFile);
+
+      const vidFile = videoInputRef.current?.files?.[0];
+      if (vidFile) formData.append('video', vidFile);
+
+      const response = await fetch(`${API}/reviews/`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) throw new Error('Failed to submit review');
+
+      const created = (await response.json()) as ReviewType;
+      setReviews((current) => [created, ...current]);
+      setReviewForm({
+        name: user ? `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.username || user.email : '',
+        rating: 5,
+        title: '',
+        comment: '',
+        image_url: '',
+        video_url: '',
+      });
+      setImagePreview(null);
+      setVideoPreview(null);
+    } catch {
+      setReviewError(t('products.reviewSubmitError', { defaultValue: 'Could not submit review right now.' }));
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8 animate-pulse">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:gap-12">
+          <div className="aspect-square w-full rounded-xl bg-muted/60"></div>
+          <div className="flex flex-col pt-4">
+            <div className="mb-2 h-4 w-32 rounded bg-muted/60"></div>
+            <div className="mb-4 h-8 w-3/4 rounded bg-muted/60 sm:h-10"></div>
+            <div className="mb-6 h-6 w-1/4 rounded bg-muted/60"></div>
+            <div className="mb-8 space-y-2">
+              <div className="h-4 w-full rounded bg-muted/60"></div>
+              <div className="h-4 w-full rounded bg-muted/60"></div>
+              <div className="h-4 w-2/3 rounded bg-muted/60"></div>
+            </div>
+            <div className="mt-8 flex gap-4">
+              <div className="h-12 w-1/2 rounded bg-muted/60"></div>
+              <div className="h-12 w-1/2 rounded bg-muted/60"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!product) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-16 text-center sm:px-6 lg:px-8">
+        <h1 className="text-2xl font-bold text-primary">{t('products.notFound', { defaultValue: 'Product not found' })}</h1>
+        <p className="mt-2 text-secondary">{t('products.notFoundDesc', { defaultValue: 'The product you are looking for does not exist or has been removed.' })}</p>
+        <Link to="/products" className="mt-6 inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-semibold text-white">
+          <ArrowLeft className="h-4 w-4" />
+          {t('products.backToProducts', { defaultValue: 'Back to products' })}
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-[1360px] w-full px-4 pb-28 pt-6 sm:px-6 sm:py-8 lg:px-8">

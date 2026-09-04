@@ -195,6 +195,20 @@ class AuditEvent(models.Model):
 
 
 class RecoveryTask(models.Model):
+    store = models.ForeignKey(
+        "sellers.Store",
+        on_delete=models.CASCADE,
+        null=True,
+        blank=True,
+        related_name="recovery_tasks"
+    )
+    order = models.ForeignKey(
+        "orders.Order",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="recovery_tasks"
+    )
     task_id = models.CharField(max_length=50, unique=True)
     customer_email = models.EmailField(blank=True)
     cart_value = models.DecimalField(max_digits=12, decimal_places=2, default=0.0)

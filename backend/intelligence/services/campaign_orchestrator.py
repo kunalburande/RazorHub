@@ -88,9 +88,15 @@ class AutonomousCampaignOrchestrator:
 
         for name in eligible_names:
             slug_key = name.lower().replace(' ', '-')
-            p = Product.objects.filter(is_active=True, stock__gte=10).filter(name__icontains=name).first()
+            p = None
+            if store:
+                p = Product.objects.filter(store=store, is_active=True, stock__gte=10).filter(name__icontains=name).first()
+                if not p:
+                    p = Product.objects.filter(store=store, is_active=True, stock__gte=10).filter(slug__icontains=slug_key).first()
             if not p:
-                p = Product.objects.filter(is_active=True, stock__gte=10).filter(slug__icontains=slug_key).first()
+                p = Product.objects.filter(is_active=True, stock__gte=10).filter(name__icontains=name).first()
+                if not p:
+                    p = Product.objects.filter(is_active=True, stock__gte=10).filter(slug__icontains=slug_key).first()
 
             stock_val = p.stock if p else 25
             price_val = float(p.current_price) if p else (

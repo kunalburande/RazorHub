@@ -58,7 +58,7 @@ class Payment(models.Model):
         (STATUS_REFUNDED, "Refunded"),
     )
 
-    order = models.OneToOneField(Order, on_delete=models.CASCADE, related_name="payment")
+    order = models.OneToOneField(Order, on_delete=models.CASCADE, null=True, blank=True, related_name="payment")
     method = models.CharField(max_length=50, choices=Order.PAYMENT_CHOICES)
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
@@ -67,7 +67,7 @@ class Payment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.order_id} - {self.method} - {self.status}"
+        return f"{self.order_id or 'Standalone'} - {self.method} - {self.status}"
 
 class Cart(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True)
@@ -117,3 +117,114 @@ class Consent(models.Model):
     consent_type = models.CharField(max_length=50)
     granted_at = models.DateTimeField(auto_now_add=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+
+class Refund(models.Model):
+    STATUS_PENDING = "pending"
+    STATUS_PROCESSED = "processed"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = (
+        (STATUS_PENDING, "Pending"),
+        (STATUS_PROCESSED, "Processed"),
+        (STATUS_FAILED, "Failed"),
+    )
+
+    REASON_CHOICES = (
+        ("defective_product", "Defective Product / Hardware Issue"),
+        ("late_delivery", "Late Delivery / Missed SLA"),
+        ("customer_refusal", "Customer Refusal / Changed Mind"),
+        ("sizing_issue", "Sizing / Fitment Mismatch"),
+        ("duplicate_order", "Duplicate Order Placed"),
+        ("suspected_fraud", "Suspected Fraud / Risk Intercept"),
+    )
+
+    refund_id = models.CharField(max_length=64, unique=True, db_index=True)
+    order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name="refunds")
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name="refunds")
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, default="INR")
+    reason = models.CharField(max_length=50, choices=REASON_CHOICES, default="customer_refusal")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PROCESSED)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.refund_id} - ₹{self.amount} ({self.status})"
+
+
+class Payout(models.Model):
+    STATUS_QUEUED = "queued"
+    STATUS_PROCESSING = "processing"
+    STATUS_PROCESSED = "processed"
+    STATUS_REVERSED = "reversed"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = (
+        (STATUS_QUEUED, "Queued"),
+        (STATUS_PROCESSING, "Processing"),
+        (STATUS_PROCESSED, "Processed"),
+        (STATUS_REVERSED, "Reversed"),
+        (STATUS_FAILED, "Failed"),
+    )
+
+    MODE_CHOICES = (
+        ("NEFT", "NEFT"),
+        ("RTGS", "RTGS"),
+        ("IMPS", "IMPS"),
+        ("UPI", "UPI"),
+    )
+
+    payout_id = models.CharField(max_length=64, unique=True, db_index=True)
+    store = models.ForeignKey("sellers.Store", on_delete=models.SET_NULL, null=True, blank=True, related_name="payouts")
+    recipient_name = models.CharField(max_length=150)
+    recipient_account = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=12, decimal_places=2)
+    currency = models.CharField(max_length=3, default="INR")
+    mode = models.CharField(max_length=20, choices=MODE_CHOICES, default="NEFT")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PROCESSED)
+    utr = models.CharField(max_length=100, blank=True)
+    narration = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"{self.payout_id} - {self.recipient_name} - ₹{self.amount} ({self.status})"
+
+
+class Settlement(models.Model):
+    STATUS_CREATED = "created"
+    STATUS_PROCESSED = "processed"
+    STATUS_DELAYED = "delayed"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = (
+        (STATUS_CREATED, "Created"),
+        (STATUS_PROCESSED, "Processed"),
+        (STATUS_DELAYED, "Delayed"),
+        (STATUS_FAILED, "Failed"),
+    )
+
+    settlement_id = models.CharField(max_length=64, unique=True, db_index=True)
+    store = models.ForeignKey("sellers.Store", on_delete=models.SET_NULL, null=True, blank=True, related_name="settlements")
+    amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Gross settlement volume")
+    fees = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="Gateway fee deduction")
+    tax = models.DecimalField(max_digits=10, decimal_places=2, default=0, help_text="GST on gateway fee")
+    net_amount = models.DecimalField(max_digits=12, decimal_places=2, help_text="Net credited amount")
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PROCESSED)
+    utr = models.CharField(max_length=100, blank=True)
+    settlement_date = models.DateField()
+    is_delayed = models.BooleanField(default=False)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-settlement_date", "-created_at"]
+
+    def __str__(self):
+        return f"{self.settlement_id} - Net ₹{self.net_amount} ({self.status})"

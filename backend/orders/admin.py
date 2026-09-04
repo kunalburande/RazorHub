@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Order, OrderItem, Payment
+from .models import Order, OrderItem, Payment, Refund, Payout, Settlement
 
 
 class OrderItemInline(admin.TabularInline):
@@ -26,5 +26,27 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ["order", "method", "status", "amount", "created_at"]
+    list_display = ["id", "order", "method", "status", "amount", "provider_reference", "created_at"]
     list_filter = ["method", "status"]
+    search_fields = ["provider_reference", "order__id", "order__user__email"]
+
+
+@admin.register(Refund)
+class RefundAdmin(admin.ModelAdmin):
+    list_display = ["refund_id", "order", "amount", "reason", "status", "created_at"]
+    list_filter = ["status", "reason"]
+    search_fields = ["refund_id", "order__id", "order__user__email"]
+
+
+@admin.register(Payout)
+class PayoutAdmin(admin.ModelAdmin):
+    list_display = ["payout_id", "recipient_name", "store", "amount", "mode", "status", "created_at"]
+    list_filter = ["status", "mode", "store"]
+    search_fields = ["payout_id", "recipient_name", "utr"]
+
+
+@admin.register(Settlement)
+class SettlementAdmin(admin.ModelAdmin):
+    list_display = ["settlement_id", "store", "amount", "net_amount", "status", "is_delayed", "settlement_date"]
+    list_filter = ["status", "is_delayed", "store"]
+    search_fields = ["settlement_id", "utr"]
