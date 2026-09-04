@@ -644,9 +644,11 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
         handler: async function (response: any) {
           try {
             const paymentId = response.razorpay_payment_id || `rzp_test_${Date.now()}`;
+            try { (window as any).confetti?.({ particleCount: 80, spread: 70, origin: { y: 0.6 } }); } catch (_) {}
             if (intentId) {
               await approveTransaction(intentId);
             } else {
+              clearCart();
               sendMessage(`I have completed payment of ₹${amount} via Razorpay (Ref: ${paymentId}).`);
             }
           } catch (err) {
@@ -687,9 +689,11 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
     setIsProcessingRazorpay(true);
     setTimeout(async () => {
       try {
+        try { (window as any).confetti?.({ particleCount: 80, spread: 70, origin: { y: 0.6 } }); } catch (_) {}
         if (pendingIntentId) {
           await approveTransaction(pendingIntentId);
         } else {
+          clearCart();
           sendMessage(`I have completed payment of ₹${razorpayAmount} via Razorpay UPI.`);
         }
       } catch (err) {
@@ -1872,7 +1876,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                   }`}
                 >
                   {/* Intent Tag */}
-                  {m.intent && (
+                  {m.intent && m.intent !== 'AGENTIC_COMMERCE_DEMO' && (
                     <div className="inline-block px-2.5 py-0.5 rounded-md text-[10px] font-extrabold uppercase tracking-wider bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/25">
                       {m.intent}
                     </div>

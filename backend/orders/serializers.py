@@ -260,6 +260,21 @@ class OrderSerializer(serializers.ModelSerializer):
                 title=f"New order #{order.id}",
                 body="A customer placed an order containing your products.",
             )
+
+        # Clean up ordered items from user's active database Cart
+        if user and getattr(user, "is_authenticated", False):
+            try:
+                from .models import Cart as DbCart
+                db_cart = DbCart.objects.filter(user=user).first()
+                if db_cart:
+                    ordered_product_ids = [item["product"].id for item in items_data if hasattr(item.get("product"), "id")]
+                    if ordered_product_ids:
+                        db_cart.items.filter(product_id__in=ordered_product_ids).delete()
+                    if not db_cart.items.exists():
+                        db_cart.items.all().delete()
+            except Exception:
+                pass
+
         return order
 
 

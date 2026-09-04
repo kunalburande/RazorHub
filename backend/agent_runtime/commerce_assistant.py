@@ -497,11 +497,21 @@ class DeterministicCommerceTools:
 
             # 2. Attach Order Items if product objects exist
             cart_items = intent.cart_snapshot.get("items", [])
+            purchased_prod_ids = []
             for item in cart_items:
-                product_obj = Product.objects.filter(name__icontains=item.get("name", "")).first()
+                product_obj = None
+                p_id = item.get("id")
+                if p_id and str(p_id).isdigit():
+                    product_obj = Product.objects.filter(id=int(p_id)).first()
+                if not product_obj and item.get("slug"):
+                    product_obj = Product.objects.filter(slug=item.get("slug")).first()
+                if not product_obj and item.get("name"):
+                    product_obj = Product.objects.filter(name__icontains=item.get("name", "")).first()
                 if not product_obj:
                     product_obj = Product.objects.first()
+
                 if product_obj:
+                    purchased_prod_ids.append(product_obj.id)
                     OrderItem.objects.create(
                         order=order,
                         product=product_obj,
@@ -548,6 +558,22 @@ class DeterministicCommerceTools:
                     },
                 )
 
+            # 7. Remove purchased items from the user's active database Cart
+            cleared_product_ids = list(set(purchased_prod_ids))
+            if user and getattr(user, "is_authenticated", False):
+                try:
+                    from orders.models import Cart as DbCart
+                    db_cart = DbCart.objects.filter(user=user).first()
+                    if db_cart:
+                        if cleared_product_ids:
+                            db_cart.items.filter(product_id__in=cleared_product_ids).delete()
+                        else:
+                            db_cart.items.all().delete()
+                        if not db_cart.items.exists():
+                            db_cart.items.all().delete()
+                except Exception as e:
+                    logger.warning(f"Could not clear DB cart items after agent checkout: {e}")
+
         return {
             "success": True,
             "order_id": order.id,
@@ -556,6 +582,8 @@ class DeterministicCommerceTools:
             "status": "PAID",
             "delivery_eta": "2 business days",
             "receipt_url": f"/orders/{order.id}",
+            "cleared_items": cart_items,
+            "cleared_product_ids": cleared_product_ids,
         }
 
 
@@ -738,7 +766,7 @@ class AgenticCommerceService:
 
                 return {
                     "message": shop_res.get("content", ""),
-                    "intent": "AGENTIC_COMMERCE_DEMO",
+                    "intent": None,
                     "products": products,
                     "cart": cart_data,
                     "conversational_checkout": shop_res.get("conversational_checkout"),

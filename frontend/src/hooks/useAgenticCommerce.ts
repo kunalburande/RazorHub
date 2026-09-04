@@ -45,6 +45,8 @@ export interface PaymentSuccessData {
   status: string;
   delivery_eta: string;
   receipt_url: string;
+  cleared_items?: any[];
+  cleared_product_ids?: number[];
 }
 
 export interface ChatMessage {
@@ -180,6 +182,53 @@ export function useAgenticCommerce() {
     ]);
   }, [token, roleConfig]);
 
+  // Cart Cleanup Helper when agent checks out products
+  const handleCheckoutCartCleanup = useCallback((clearedItems?: any[], clearedProductIds?: number[]) => {
+    if (cartItems.length === 0) return;
+
+    const idsToRemove = new Set<number>();
+    const slugsToRemove = new Set<string>();
+    const namesToRemove = new Set<string>();
+
+    if (Array.isArray(clearedProductIds) && clearedProductIds.length > 0) {
+      clearedProductIds.forEach(id => idsToRemove.add(Number(id)));
+    }
+
+    if (Array.isArray(clearedItems) && clearedItems.length > 0) {
+      clearedItems.forEach(item => {
+        if (item.id && !isNaN(Number(item.id))) {
+          idsToRemove.add(Number(item.id));
+        }
+        if (item.slug) {
+          slugsToRemove.add(String(item.slug).toLowerCase());
+        }
+        if (item.name) {
+          namesToRemove.add(String(item.name).toLowerCase().trim());
+        }
+      });
+    }
+
+    if (idsToRemove.size > 0 || slugsToRemove.size > 0 || namesToRemove.size > 0) {
+      const matchedItems = cartItems.filter(ci =>
+        idsToRemove.has(ci.product.id) ||
+        (ci.product.slug && slugsToRemove.has(ci.product.slug.toLowerCase())) ||
+        (ci.product.name && namesToRemove.has(ci.product.name.toLowerCase().trim()))
+      );
+
+      if (matchedItems.length >= cartItems.length) {
+        clearCart();
+      } else if (matchedItems.length > 0) {
+        matchedItems.forEach(mi => {
+          removeFromCart(mi.product.id);
+        });
+      } else {
+        clearCart();
+      }
+    } else {
+      clearCart();
+    }
+  }, [cartItems, removeFromCart, clearCart]);
+
   // Send Message
   const sendMessage = useCallback(async (msgText: string) => {
     const text = msgText.trim();
@@ -251,11 +300,29 @@ export function useAgenticCommerce() {
         setCanvasTab('products');
       }
 
-      // If payment succeeded, refresh policy
-      if (res.payment_success && token) {
-        apiRequest<ConsentPolicy>('/agent-runtime/commerce/consent/', { token })
-          .then(p => setPolicy(p))
-          .catch(() => { });
+      // If payment succeeded (auto-approve or pay intent), remove checked out products from cart and refresh policy
+      if (res.payment_success) {
+        handleCheckoutCartCleanup(res.payment_success.cleared_items, res.payment_success.cleared_product_ids);
+        if (token) {
+          apiRequest<ConsentPolicy>('/agent-runtime/commerce/consent/', { token })
+            .then(p => setPolicy(p))
+            .catch(() => { });
+        }
+      }
+
+      // If MCP conversational payment succeeded, remove product from cart
+      if (res.mcp_payment && (res.mcp_payment.status === 'PAID' || res.mcp_payment.success)) {
+        const itemSlug = res.mcp_payment.item_slug || res.conversational_checkout?.product?.slug;
+        if (itemSlug) {
+          const found = cartItems.find(i => i.product.slug === itemSlug);
+          if (found) {
+            removeFromCart(found.product.id);
+          } else {
+            clearCart();
+          }
+        } else {
+          clearCart();
+        }
       }
     } catch (err: any) {
       // 2. Fallback to /ai/chat/ endpoint if agent-runtime encountered issue
@@ -303,7 +370,7 @@ export function useAgenticCommerce() {
     } finally {
       setLoading(false);
     }
-  }, [loading, messages, token, roleConfig, cartItems, totalPrice, role]);
+  }, [loading, messages, token, roleConfig, cartItems, totalPrice, role, handleCheckoutCartCleanup, removeFromCart, clearCart]);
 
   // Approve Transaction
   const approveTransaction = useCallback(async (intentId: string) => {
@@ -331,6 +398,11 @@ export function useAgenticCommerce() {
         body: JSON.stringify({ intent_id: intentId }),
       });
 
+      // Clear checked-out items from active shopping bag
+      if (res && res.success) {
+        handleCheckoutCartCleanup(res.cleared_items, res.cleared_product_ids);
+      }
+
       setMessages(prev =>
         prev.map(m => {
           if (m.approval_card && m.approval_card.intent_id === intentId) {
@@ -338,7 +410,7 @@ export function useAgenticCommerce() {
               ...m,
               approval_card: undefined,
               payment_success: res,
-              text: `✅ **Payment Authorized & Executed!**\n\nOrder **#ORD-${res.order_id}** is confirmed for **₹${res.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}**.\nReference: \`${res.payment_reference}\`.\nEstimated Delivery: **${res.delivery_eta}**.`,
+              text: `✅ **Payment Authorized & Executed!**\n\nOrder **#ORD-${res.order_id}** is confirmed for **₹${res.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}**.\nReference: \`${res.payment_reference}\`.\nEstimated Delivery: **${res.delivery_eta}**.\n\n*🛒 Checked-out item(s) have been removed from your shopping bag.*`,
               suggested_followups: ['Track order status', 'Download tax receipt', 'Shop more'],
             };
           }
@@ -371,7 +443,7 @@ export function useAgenticCommerce() {
     } finally {
       setApproving(false);
     }
-  }, [token, policy]);
+  }, [token, policy, handleCheckoutCartCleanup]);
 
   // Reject Transaction
   const rejectTransaction = useCallback(async (intentId: string) => {

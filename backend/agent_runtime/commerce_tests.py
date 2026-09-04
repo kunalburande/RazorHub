@@ -502,3 +502,73 @@ class AgenticCommerceAssistantTests(TestCase):
         self.assertEqual(data["approval_card"]["product"], "Xbox Series S Test Unit")
         self.assertNotIn("jacket", data["message"].lower())
         self.assertNotIn("eyeshadow", data["message"].lower())
+
+    def test_agent_checkout_clears_database_cart(self):
+        """Verifies that executing checkout payment removes purchased items from user's database Cart."""
+        from products.models import Product, Category
+        from orders.models import Cart as DbCart, CartItem as DbCartItem
+
+        cat, _ = Category.objects.get_or_create(name="Electronics", slug="electronics")
+        prod1 = Product.objects.create(
+            name="Wireless Mouse Pro",
+            slug="wireless-mouse-pro",
+            category=cat,
+            price=Decimal("1500.00"),
+            stock=15,
+            is_active=True,
+        )
+        prod2 = Product.objects.create(
+            name="Mechanical Keyboard RGB",
+            slug="mechanical-keyboard-rgb",
+            category=cat,
+            price=Decimal("3500.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        # Set up user's database cart with both products
+        db_cart, _ = DbCart.objects.get_or_create(user=self.user)
+        DbCartItem.objects.create(cart=db_cart, product=prod1, quantity=1)
+        DbCartItem.objects.create(cart=db_cart, product=prod2, quantity=1)
+        self.assertEqual(db_cart.items.count(), 2)
+
+        # Stage checkout intent for prod1
+        cart_payload = {
+            "items": [{
+                "id": str(prod1.id),
+                "name": prod1.name,
+                "slug": prod1.slug,
+                "price": float(prod1.price),
+                "quantity": 1,
+            }],
+            "total_amount": 1500.00,
+        }
+        intent = DeterministicCommerceTools.createPaymentIntent(cart_payload, user=self.user)
+
+        # Execute payment
+        res = DeterministicCommerceTools.executePayment(str(intent.id), user=self.user)
+        self.assertTrue(res["success"])
+        self.assertIn(prod1.id, res["cleared_product_ids"])
+
+        # Check that prod1 was removed from db_cart, and prod2 remains
+        remaining_items = DbCartItem.objects.filter(cart=db_cart)
+        self.assertEqual(remaining_items.count(), 1)
+        self.assertEqual(remaining_items.first().product_id, prod2.id)
+
+        # Now checkout prod2
+        cart_payload2 = {
+            "items": [{
+                "id": str(prod2.id),
+                "name": prod2.name,
+                "slug": prod2.slug,
+                "price": float(prod2.price),
+                "quantity": 1,
+            }],
+            "total_amount": 3500.00,
+        }
+        intent2 = DeterministicCommerceTools.createPaymentIntent(cart_payload2, user=self.user)
+        res2 = DeterministicCommerceTools.executePayment(str(intent2.id), user=self.user)
+        self.assertTrue(res2["success"])
+
+        # DB cart should now be completely empty
+        self.assertEqual(DbCartItem.objects.filter(cart=db_cart).count(), 0)
