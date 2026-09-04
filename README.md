@@ -257,7 +257,7 @@ The application will be available at:
 
 ### Backend (`backend/.env`)
 ```env
-DATABASE_URL=postgresql://neondb_owner:npg_e7kfJ1yOabNr@ep-autumn-frog-azidb1kc-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require
+DATABASE_URL=postgresql://neondb_owner:your_password_here@your_neon_host.aws.neon.tech/neondb?sslmode=require&channel_binding=require
 SECRET_KEY=django-insecure-razorhub-agentic-key-2026
 DEBUG=True
 ALLOWED_HOSTS=*

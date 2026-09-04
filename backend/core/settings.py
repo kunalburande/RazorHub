@@ -53,7 +53,7 @@ DEBUG = os.environ.get('DEBUG', 'True').lower() in ('true', '1', 'yes')
 ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', '*').split(',')
 
 # ── Gemini AI API Key ─────────────────────────────────────────────────
-GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', 'AQ.Ab8RN6LwetyCv-GRh2uMk5TE5DUv-e_JipZOUWBlMeKuuhLgvA')
+GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY', '')
 
 # Sentry
 import sentry_sdk

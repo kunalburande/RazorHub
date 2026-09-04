@@ -2,70 +2,165 @@
 #  RazorHub .gitignore
 # ──────────────────────────────────────────
 
-# Local environment & secrets (NEVER commit these)
+# ── Local Environment & Secrets (NEVER commit these) ──
 .env
+.env.*
+*.env
 .ev
 .env.local
 .env.*.local
+frontend/.env
 frontend/.env.local
+frontend/.env.*.local
 backend/.env
+backend/.env.local
+backend/.env.*.local
 render-backup/
+
+# Allow tracked example / template files
+!.env.example
+!.env.template
+!backend/.env.example
+!frontend/.env.example
+
+# Credentials & Keys
+*.pem
+*.key
+*.cert
+*.crt
+*.pfx
+*.p12
+*.keystore
+id_rsa*
+id_ecdsa*
+id_ed25519*
 
 # OpenCode & AI Assistant Configs
 .opencode/
+.neon
 
 # ── Python / Django ────────────────────────
 __pycache__/
 *.py[cod]
+*$py.class
 *.pyo
 *.pyd
 *.pyc
 *.pdb
+.Python
+
+# SQLite Databases & Storage
+*.sqlite3
 *.sqlite3-journal
+*.sqlite
+*.sqlite-journal
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+db.sqlite3
+backend/db.sqlite3
 test_*.db
 
-# Virtual environment (active local venv)
-# venv/
-# backend/venv/
+# Django Media & Static Uploads
+media/
+backend/media/
+staticfiles/
+backend/staticfiles/
 
-# ── Node / Vite ────────────────────────────
+# Virtual Environments (active local venvs)
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+backend/venv/
+backend/.venv/
+backend/env/
+*/venv/
+*/.venv/
+
+# Python packaging & distribution
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Testing & Linting Caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+coverage/
+.coverage
+.coverage.*
+htmlcov/
+
+# ── Node / Vite / Frontend ──────────────────
 node_modules/
 frontend/node_modules/
 dist/
 frontend/dist/
+dist-ssr/
+frontend/dist-ssr/
 .vite/
 frontend/.vite/
-
-# Build output
-build/
 *.local
+.npm
+.eslintcache
+.stylelintcache
+.parcel-cache
 
-# ── Dev server logs ────────────────────────
+# npm / yarn / pnpm debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ── Dev Server Logs ────────────────────────
 logs/
+backend/logs/
+frontend/logs/
 *.log
 
-# ── Audit & Diagnostic Dumps ───────────────
+# ── Audit & Diagnostic Dumps & Scratch ─────
 backend/flagged_products.json
 backend/image_audit_trail.json
 flagged_products.json
 image_audit_trail.json
+scratch/
+
 
 # ── OS & Editor ────────────────────────────
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
 Thumbs.db
+desktop.ini
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-
-# ── Misc ───────────────────────────────────
-*.egg-info/
-.eggs/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-coverage/
-.coverage
-htmlcov/
-.neon
+*.sublime-workspace
+*.sublime-project

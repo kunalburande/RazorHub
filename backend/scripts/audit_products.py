@@ -7,7 +7,7 @@ django.setup()
 from products.models import Product, ProductImage, Category
 from django.db.models import Count
 
-pub_dir = r'C:\Users\krbur\OneDrive\Desktop\AI\KinaHub-main\frontend\public\product-media'
+pub_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../../frontend/public/product-media'))
 pub_files = set(os.listdir(pub_dir)) if os.path.exists(pub_dir) else set()
 
 total_prods = Product.objects.count()
