@@ -29,6 +29,43 @@ from intelligence.services.commerce_audit import CommerceAuditService
 logger = logging.getLogger(__name__)
 
 
+# ── CATEGORY AFFINITY MAP (Business Rules) ────────────────────────────────────
+# Defines which categories are legitimate cross-sell targets for each source
+# category. This prevents irrelevant suggestions (e.g., laptop → sneakers).
+# Keys are partial slug/name matches (lowercased). Values list target slugs.
+CATEGORY_AFFINITY_MAP = {
+    # Electronics / Laptops → Audio, Bags, Peripherals, Storage
+    "laptop": ["audio", "sound", "headphone", "bag", "backpack", "accessories", "peripheral", "storage", "mouse", "keyboard", "charger", "cable"],
+    "notebook": ["audio", "sound", "headphone", "bag", "backpack", "accessories", "peripheral", "storage", "mouse", "keyboard"],
+    # Mobiles → Audio, Cases, Chargers, Accessories
+    "mobile": ["audio", "sound", "headphone", "earphone", "case", "cover", "charger", "cable", "accessories", "screen", "protector", "power"],
+    "phone": ["audio", "sound", "headphone", "earphone", "case", "cover", "charger", "cable", "accessories", "screen", "protector", "power"],
+    "smartphone": ["audio", "sound", "headphone", "earphone", "case", "cover", "charger", "cable", "accessories"],
+    # Audio → Cases, Cables, Audio Accessories
+    "audio": ["cable", "charger", "case", "cover", "accessories", "adapter", "stand", "mount"],
+    "sound": ["cable", "charger", "case", "cover", "accessories", "adapter", "stand", "mount"],
+    "headphone": ["cable", "charger", "case", "cover", "accessories", "adapter", "stand"],
+    "earphone": ["cable", "charger", "case", "cover", "accessories", "adapter"],
+    # Gaming → Controllers, Headsets, Audio, Accessories
+    "gaming": ["audio", "sound", "headphone", "headset", "controller", "joystick", "accessories", "mouse", "keyboard", "monitor"],
+    "console": ["audio", "sound", "headphone", "headset", "controller", "joystick", "accessories", "gaming"],
+    # Photography → Memory Cards, Bags, Tripods, Lenses
+    "photography": ["bag", "backpack", "tripod", "lens", "memory", "storage", "accessories", "gimbal", "light", "filter"],
+    "camera": ["bag", "backpack", "tripod", "lens", "memory", "storage", "accessories", "gimbal", "light", "filter"],
+    # Sneakers / Footwear → Sports Accessories
+    "sneaker": ["sports", "fitness", "insole", "sock", "accessories", "bag", "backpack"],
+    "shoe": ["sports", "fitness", "insole", "sock", "accessories", "bag", "backpack"],
+    "footwear": ["sports", "fitness", "insole", "sock", "accessories"],
+    # Appliances → Kitchen Accessories
+    "appliance": ["kitchen", "cleaning", "accessories", "utensil", "cookware"],
+    # Fashion → Accessories, Jewellery, Footwear
+    "fashion": ["accessories", "jewellery", "watch", "bag", "footwear", "sneaker"],
+    "clothing": ["accessories", "jewellery", "watch", "bag", "footwear"],
+    # Electronics (general)
+    "electronic": ["audio", "sound", "headphone", "charger", "cable", "accessories", "storage", "peripheral"],
+}
+
+
 class UpsellService:
     """Core upsell/cross-sell logic with guardrails and audit trail."""
 
@@ -63,6 +100,85 @@ class UpsellService:
             logger.warning(f"[Upsell] Suppression check error: {e}")
 
         return False
+
+    # ── Category Affinity Helpers ──────────────────────────────────────────
+
+    @classmethod
+    def _get_affinity_slugs(cls, product):
+        """
+        Return list of target category slug fragments that are legitimate
+        cross-sell targets for the given product, based on CATEGORY_AFFINITY_MAP.
+        """
+        if not product or not product.category:
+            return []
+
+        cat_slug = (product.category.slug or "").lower()
+        cat_name = (product.category.name or "").lower()
+        prod_name = (product.name or "").lower()
+
+        matched_targets = set()
+        for key, targets in CATEGORY_AFFINITY_MAP.items():
+            if key in cat_slug or key in cat_name or key in prod_name:
+                matched_targets.update(targets)
+
+        return list(matched_targets)
+
+    @classmethod
+    def _is_relevant_cross_sell(cls, source_product, candidate_product):
+        """
+        Check if candidate_product is a relevant cross-sell for source_product
+        using the category affinity map. Returns True if relevant.
+        """
+        if not source_product or not candidate_product:
+            return False
+
+        # Same category = NOT cross-sell (that's upsell territory)
+        if source_product.category_id == candidate_product.category_id:
+            return False
+
+        affinity_slugs = cls._get_affinity_slugs(source_product)
+        if not affinity_slugs:
+            # No affinity map for this category — only allow ProductRelationship-based
+            return False
+
+        cand_cat_slug = (candidate_product.category.slug or "").lower() if candidate_product.category else ""
+        cand_cat_name = (candidate_product.category.name or "").lower() if candidate_product.category else ""
+        cand_name = (candidate_product.name or "").lower()
+
+        for slug_frag in affinity_slugs:
+            if slug_frag in cand_cat_slug or slug_frag in cand_cat_name or slug_frag in cand_name:
+                return True
+
+        return False
+
+    @classmethod
+    def _get_cross_sell_reason(cls, source_product, candidate_product):
+        """Generate a human-readable reason for why this cross-sell is relevant."""
+        src_cat = source_product.category.name if source_product.category else "product"
+        cand_cat = candidate_product.category.name if candidate_product.category else "item"
+
+        # Category-specific reasons
+        src_lower = src_cat.lower()
+        cand_lower = cand_cat.lower()
+
+        if any(k in cand_lower for k in ["audio", "sound", "headphone", "earphone"]):
+            return f"Compatible audio accessory for your {src_cat.lower()}"
+        if any(k in cand_lower for k in ["case", "cover", "protector"]):
+            return f"Protective accessory for your {src_cat.lower()}"
+        if any(k in cand_lower for k in ["charger", "cable", "adapter", "power"]):
+            return f"Essential charging accessory for your {src_cat.lower()}"
+        if any(k in cand_lower for k in ["bag", "backpack"]):
+            return f"Carry bag designed for {src_cat.lower()}"
+        if any(k in cand_lower for k in ["mouse", "keyboard", "peripheral"]):
+            return f"Complementary peripheral for your {src_cat.lower()}"
+        if any(k in cand_lower for k in ["storage", "memory"]):
+            return f"Expand storage for your {src_cat.lower()}"
+        if any(k in cand_lower for k in ["tripod", "lens", "gimbal"]):
+            return f"Photography gear compatible with your {src_cat.lower()}"
+        if any(k in cand_lower for k in ["controller", "joystick"]):
+            return f"Gaming controller for your {src_cat.lower()}"
+
+        return f"Frequently paired with {src_cat.lower()} purchases"
 
     # ── Signal Detection ───────────────────────────────────────────────────
 
@@ -170,30 +286,37 @@ class UpsellService:
                                   else f"Recommended as {rel.relationship_type.replace('_', ' ')} for {product.name}",
                     })
 
-        # 2. Category-based fallback
-        if len(candidates) < limit:
+        # 2. Category-affinity fallback (NOT random featured products)
+        if len(candidates) < limit and product:
             exclude_ids = [c["product"].id for c in candidates]
-            if product:
-                exclude_ids.append(product.id)
+            exclude_ids.append(product.id)
             if product_ids:
                 exclude_ids.extend(product_ids)
 
-            category_id = product.category_id if product else None
-            fallback_qs = Product.objects.filter(
-                is_active=True, stock__gt=0, is_featured=True
-            ).exclude(id__in=exclude_ids)
+            affinity_slugs = cls._get_affinity_slugs(product)
+            if affinity_slugs:
+                # Build Q filter for affinity categories
+                affinity_q = Q()
+                for slug_frag in affinity_slugs:
+                    affinity_q |= Q(category__slug__icontains=slug_frag) | Q(category__name__icontains=slug_frag) | Q(name__icontains=slug_frag)
 
-            if category_id:
-                # Get from different category for cross-sell diversity
-                fallback_qs = fallback_qs.exclude(category_id=category_id)
+                fallback_qs = Product.objects.filter(
+                    affinity_q,
+                    is_active=True,
+                    stock__gt=0,
+                ).exclude(
+                    id__in=exclude_ids
+                ).exclude(
+                    category_id=product.category_id  # Exclude same category
+                ).select_related("category").order_by('-rating', '-created_at')
 
-            for p in fallback_qs[:limit - len(candidates)]:
-                candidates.append({
-                    "product": p,
-                    "relationship": "recommended",
-                    "confidence": 0.5,
-                    "reason": "Popular item you might like",
-                })
+                for p in fallback_qs[:limit - len(candidates)]:
+                    candidates.append({
+                        "product": p,
+                        "relationship": "category_affinity",
+                        "confidence": 0.7,
+                        "reason": cls._get_cross_sell_reason(product, p),
+                    })
 
         return candidates[:limit]
 
@@ -308,6 +431,190 @@ class UpsellService:
 
         return offer_data
 
+    # ── Relevance-Gated Recommendations ────────────────────────────────────
+
+    @classmethod
+    def get_relevant_cross_sell(cls, product, user=None, limit=4):
+        """
+        Get ONLY category-relevant cross-sell products for a given product.
+        Uses ProductRelationship first, then affinity-mapped categories.
+        Filters through merchant policy forbidden_categories.
+        """
+        if not product:
+            return []
+
+        # Guardrail: suppress for unhappy customers
+        if user and cls.should_suppress_upsell(user=user):
+            return []
+
+        # Get forbidden categories from merchant policy
+        forbidden_cats = set()
+        try:
+            from intelligence.services.merchant_policy import MerchantPolicyEngine, DEFAULT_POLICY_DICT
+            policy = DEFAULT_POLICY_DICT
+            forbidden_cats = set(policy.get("forbidden_categories", []))
+        except Exception:
+            pass
+
+        candidates = cls.get_cross_sell_candidates(product=product, limit=limit + 2)
+
+        # Filter: only keep genuinely relevant products
+        relevant = []
+        for c in candidates:
+            cp = c["product"]
+            cat_slug = (cp.category.slug or "").lower() if cp.category else ""
+
+            # Skip forbidden categories
+            if cat_slug in forbidden_cats:
+                continue
+
+            # If relationship-based, trust it
+            if c["relationship"] not in ["recommended", "category_affinity"]:
+                relevant.append(c)
+                continue
+
+            # If affinity-based, validate relevance
+            if cls._is_relevant_cross_sell(product, cp) or c["relationship"] == "category_affinity":
+                relevant.append(c)
+
+        return relevant[:limit]
+
+    @classmethod
+    def get_relevant_upsell(cls, product, user=None, limit=3):
+        """
+        Get same-category, higher-tier upsell products.
+        Filters through merchant policy.
+        """
+        if not product:
+            return []
+
+        if user and cls.should_suppress_upsell(user=user):
+            return []
+
+        upsell_products = cls.get_upsell_candidates(product, limit=limit)
+
+        results = []
+        for p in upsell_products:
+            price_diff = float(p.current_price) - float(product.current_price)
+            results.append({
+                "product": p,
+                "type": "upsell",
+                "price_diff": price_diff,
+                "reason": f"Premium upgrade in {product.category.name if product.category else 'this category'} — ₹{price_diff:,.0f} more for enhanced performance and features",
+            })
+
+        return results
+
+    @classmethod
+    def build_checkout_recommendations(cls, cart_items=None, product=None, user=None, limit=3):
+        """
+        Main entry point for generating structured cross-sell/upsell recommendations
+        suitable for both agent chat and normal shopping UI.
+
+        Returns:
+            {
+                "cross_sell": [{"id", "name", "slug", "price", "image_url", "category", "reason", "type"}],
+                "upsell": [{"id", "name", "slug", "price", "image_url", "category", "reason", "type", "price_diff"}],
+                "suppressed": bool
+            }
+        """
+        if user and cls.should_suppress_upsell(user=user):
+            return {"cross_sell": [], "upsell": [], "suppressed": True}
+
+        cross_sell_results = []
+        upsell_results = []
+
+        # Determine the base product(s) from cart or direct product
+        base_product = product
+        if not base_product and cart_items:
+            # Use the first (primary) cart item as the base
+            first_id = cart_items[0].get("id") or cart_items[0].get("product_id") if cart_items else None
+            if first_id:
+                try:
+                    if str(first_id).isdigit():
+                        base_product = Product.objects.select_related("category", "brand", "store").get(id=int(first_id))
+                    else:
+                        base_product = Product.objects.select_related("category", "brand", "store").filter(slug=str(first_id)).first()
+                except Product.DoesNotExist:
+                    pass
+
+        if not base_product:
+            return {"cross_sell": [], "upsell": [], "suppressed": False}
+
+        # Collect IDs already in cart to exclude from suggestions
+        cart_ids = set()
+        if cart_items:
+            for ci in cart_items:
+                pid = ci.get("id") or ci.get("product_id")
+                if pid and str(pid).isdigit():
+                    cart_ids.add(int(pid))
+
+        # 1. Cross-sell: relevant complementary products
+        cross_sells = cls.get_relevant_cross_sell(base_product, user=user, limit=limit)
+        for cs in cross_sells:
+            p = cs["product"]
+            if p.id in cart_ids:
+                continue
+            img_url = ""
+            first_img = p.images.first() if hasattr(p, "images") else None
+            if first_img and first_img.image_url:
+                img_url = first_img.image_url
+            if not img_url:
+                img_url = getattr(p, "image_url", "") or ""
+
+            cross_sell_results.append({
+                "id": str(p.id),
+                "name": p.name,
+                "slug": p.slug,
+                "price": float(p.current_price),
+                "original_price": float(p.price),
+                "image_url": img_url,
+                "category": p.category.name if p.category else "General",
+                "brand": p.brand.name if p.brand else "RazorHub Partner",
+                "merchant": p.store.name if p.store else "RazorHub Verified Store",
+                "rating": float(p.rating or 4.5),
+                "in_stock": p.stock > 0,
+                "reason": cs.get("reason", "Complementary product"),
+                "type": "cross_sell",
+                "relationship": cs.get("relationship", "affinity"),
+            })
+
+        # 2. Upsell: same-category, higher-tier products
+        upsells = cls.get_relevant_upsell(base_product, user=user, limit=2)
+        for us in upsells:
+            p = us["product"]
+            if p.id in cart_ids:
+                continue
+            img_url = ""
+            first_img = p.images.first() if hasattr(p, "images") else None
+            if first_img and first_img.image_url:
+                img_url = first_img.image_url
+            if not img_url:
+                img_url = getattr(p, "image_url", "") or ""
+
+            upsell_results.append({
+                "id": str(p.id),
+                "name": p.name,
+                "slug": p.slug,
+                "price": float(p.current_price),
+                "original_price": float(p.price),
+                "image_url": img_url,
+                "category": p.category.name if p.category else "General",
+                "brand": p.brand.name if p.brand else "RazorHub Partner",
+                "merchant": p.store.name if p.store else "RazorHub Verified Store",
+                "rating": float(p.rating or 4.5),
+                "in_stock": p.stock > 0,
+                "reason": us.get("reason", "Premium upgrade"),
+                "type": "upsell",
+                "price_diff": us.get("price_diff", 0),
+            })
+
+        return {
+            "cross_sell": cross_sell_results[:limit],
+            "upsell": upsell_results[:2],
+            "suppressed": False,
+        }
+
     # ── Main Entry Point ───────────────────────────────────────────────────
 
     @classmethod
@@ -343,12 +650,12 @@ class UpsellService:
                     "data": incentive,
                 })
 
-            # Cross-sell from first cart item
+            # Cross-sell from first cart item — use relevance-gated method
             first_pid = cart_items[0].get("id") or cart_items[0].get("product_id") if cart_items else None
             if first_pid:
                 try:
-                    p = Product.objects.get(id=first_pid)
-                    cross_sells = cls.get_cross_sell_candidates(product=p, limit=limit)
+                    p = Product.objects.select_related("category").get(id=first_pid)
+                    cross_sells = cls.get_relevant_cross_sell(product=p, limit=limit)
                     for cs in cross_sells:
                         recommendations.append({
                             "type": "cross_sell",

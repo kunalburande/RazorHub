@@ -677,19 +677,23 @@ class AgenticCommerceService:
         if re.search(r"\b(add to cart|add\b.+\bto cart)\b", text):
             return CommerceIntent.ADD_TO_CART
 
-        # Buy / checkout / affirmative confirmation
-        if re.search(r"\b(buy|purchase|checkout|take this|proceed|confirm|yes|sure|ok|okay|yep|yeah|buy it|order it)\b", text) or any(k in text for k in [
-            "proceed for chechout", "proceed for checkout", "proceed with checkout", "proceed to checkout",
-            "checkout for my bag", "bag items", "checkout my cart", "checkout bag", "checkout items",
-            "buy it", "order it", "go ahead"
-        ]) or text.strip() in ["yes", "y", "sure", "ok", "okay", "proceed", "confirm", "buy it", "go ahead", "do it"]:
-            return CommerceIntent.CHECKOUT
+        # Order status, payment status, refund checks
+        if any(k in text for k in ["order status", "track order", "where is my order", "track my order", "status of my order"]):
+            return CommerceIntent.ORDER_STATUS
         if any(k in text for k in ["payment status", "did payment go through"]):
             return CommerceIntent.PAYMENT_STATUS
         if any(k in text for k in ["refund", "return"]):
             return CommerceIntent.REFUND
-        if any(k in text for k in ["order status", "track order", "where is my order"]):
-            return CommerceIntent.ORDER_STATUS
+
+        # Buy / checkout / affirmative confirmation
+        if re.search(r"\b(buy|purchase|checkout|place order|order this|order now|take this|take it|proceed|confirm|yes|sure|ok|okay|yep|yeah|buy it|order it)\b", text) or (
+            "order" in text and not any(k in text for k in ["track", "where", "status"])
+        ) or any(k in text for k in [
+            "proceed for chechout", "proceed for checkout", "proceed with checkout", "proceed to checkout",
+            "checkout for my bag", "bag items", "checkout my cart", "checkout bag", "checkout items",
+            "buy it", "order it", "order now", "place order", "go ahead"
+        ]) or text.strip() in ["yes", "y", "sure", "ok", "okay", "proceed", "confirm", "buy it", "order it", "order now", "go ahead", "do it"]:
+            return CommerceIntent.CHECKOUT
 
         # If user is a merchant, general stock/inventory mentions route to SELLER_INVENTORY
         if is_seller and any(k in text for k in ["stock", "inventory", "catalog", "sku"]):
@@ -734,7 +738,6 @@ class AgenticCommerceService:
                 "competent recommendation", "phone for photography",
                 "upsell", "cross-sell", "cross sell", "suggest accessories"
             ])
-            or ("confirm order" in text and not ("track order" in text or "where is my order" in text))
             or (any(k in text for k in ["failed payment", "dunning"]) and not (user and getattr(user, "is_staff", False)))
             or (any(k in text for k in ["rto", "cod risk"]) and not (user and getattr(user, "is_staff", False)))
         )
@@ -764,11 +767,39 @@ class AgenticCommerceService:
                         if p_obj:
                             products.append(DeterministicCommerceTools.serializeProduct(p_obj))
 
+                conv_checkout = shop_res.get("conversational_checkout")
+                demo_approval_card = None
+                if conv_checkout and isinstance(conv_checkout, dict):
+                    c_item = conv_checkout.get("item") or {}
+                    c_price = float(c_item.get("price") or 380.00)
+                    c_name = c_item.get("name") or "Executive Thali"
+                    try:
+                        demo_intent = DeterministicCommerceTools.createPaymentIntent(
+                            cart_data={
+                                "items": [{
+                                    "id": str(c_item.get("id", "conv-item")),
+                                    "name": c_name,
+                                    "price": c_price,
+                                    "quantity": 1,
+                                    "merchant": c_item.get("merchant", "RazorHub Verified Kitchen"),
+                                }],
+                                "total_amount": c_price + 50.0,
+                            },
+                            user=user,
+                            payment_method="Razorpay UPI (Test Simulation)",
+                            merchant=c_item.get("merchant", "RazorHub Verified Kitchen"),
+                        )
+                        demo_approval_card = DeterministicCommerceTools.requestApproval(demo_intent)
+                        demo_approval_card["rules_configured"] = bool(user and getattr(getattr(user, "agent_consent_policy", None), "is_configured", False))
+                    except Exception as err:
+                        logger.warning(f"Could not build demo approval card: {err}")
+
                 return {
                     "message": shop_res.get("content", ""),
                     "intent": None,
                     "products": products,
                     "cart": cart_data,
+                    "approval_card": demo_approval_card,
                     "conversational_checkout": shop_res.get("conversational_checkout"),
                     "mcp_payment": shop_res.get("mcp_payment"),
                     "reconciliation": shop_res.get("reconciliation"),
@@ -1164,10 +1195,28 @@ class AgenticCommerceService:
                     msg = f"I couldn't find any products matching your query{price_clause}. Try adjusting your price filter or browsing our catalog."
 
             top_name = products[0]["name"][:25] if products else "item"
+
+            # Generate relevance-gated cross-sell/upsell for the top search result
+            search_recommendations = {"cross_sell": [], "upsell": []}
+            if products:
+                try:
+                    from intelligence.services.upsell_service import UpsellService
+                    top_id = products[0].get("id")
+                    if top_id and str(top_id).isdigit():
+                        search_recommendations = UpsellService.build_checkout_recommendations(
+                            product=Product.objects.select_related("category", "brand", "store").filter(id=int(top_id)).first(),
+                            user=user,
+                            limit=3,
+                        )
+                except Exception as e:
+                    logger.warning(f"Cross-sell generation for search failed: {e}")
+
             return {
                 "message": msg,
                 "intent": intent,
                 "products": products,
+                "cross_sell_suggestions": search_recommendations.get("cross_sell", []),
+                "upsell_suggestions": search_recommendations.get("upsell", []),
                 "suggested_followups": [
                     f"Add {top_name} to cart & checkout" if products else "Show popular phones",
                     "Compare top options" if len(products) >= 2 else "Show laptops under ₹1,00,000",
@@ -1228,52 +1277,86 @@ class AgenticCommerceService:
                             proposed_product_name = m.group(1).strip()
                             break
                         # Pattern 2: "My top recommendation is the **Xbox Series S**"
-                        m2 = re.search(r"top recommendation is (?:the )?\*?\*?([^\*\?]+?)\*?\*?(?: with a rating|\s*\(₹)", hist_text, re.IGNORECASE)
+                        m2 = re.search(r"top recommendation is (?:the )?\*?\*?([^\*\?]+?)\*?\*?(?: with a rating|\s*\(₹|\.)", hist_text, re.IGNORECASE)
                         if m2:
                             proposed_product_name = m2.group(1).strip()
                             break
+                        # Pattern 3: [PRODUCT:slug] tag in history
+                        slug_m = re.search(r"\[PRODUCT:([a-z0-9\-]+)\]", hist_text, re.IGNORECASE)
+                        if slug_m:
+                            p_slug = slug_m.group(1).strip()
+                            db_p = Product.objects.filter(slug=p_slug).first()
+                            if db_p:
+                                proposed_product_name = db_p.name
+                                break
+                        # Pattern 4: First bold product name in message
+                        bold_m = re.search(r"\*\*([A-Za-z0-9\s\-]+)\*\*", hist_text)
+                        if bold_m and len(bold_m.group(1).strip()) > 3:
+                            candidate = bold_m.group(1).strip()
+                            if not any(k in candidate.lower() for k in ["option", "result", "recommendation", "status", "store", "cart", "subtotal", "checkout"]):
+                                proposed_product_name = candidate
+                                break
 
             clean_msg = re.sub(r"[^\w\s]", "", text).strip()
             AFFIRMATIVE_WORDS = {
                 "yes", "y", "yeah", "yep", "sure", "ok", "okay", "proceed", "confirm",
-                "buy", "buy it", "order it", "checkout", "go ahead", "do it", "please do", "yes please",
+                "buy", "buy it", "order it", "order now", "checkout", "go ahead", "do it", "please do", "yes please",
                 "yup", "definitely", "absolutely"
             }
             is_affirmative = clean_msg in AFFIRMATIVE_WORDS or text.strip() in [
-                "yes", "y", "yeah", "yep", "sure", "ok", "okay", "proceed", "confirm", "buy it", "order it", "go ahead", "do it"
+                "yes", "y", "yeah", "yep", "sure", "ok", "okay", "proceed", "confirm", "buy it", "order it", "order now", "go ahead", "do it"
             ]
 
             # If user affirmatively replied and a proposed product was found in history, load that exact product
             if not items_to_checkout and is_affirmative and proposed_product_name:
-                db_prod = Product.objects.filter(name__icontains=proposed_product_name, is_active=True).first()
-                if not db_prod:
-                    words = [w for w in proposed_product_name.split() if len(w) > 2]
-                    if words:
-                        q_w = Q()
-                        for w in words:
-                            q_w |= Q(name__icontains=w)
-                        db_prod = Product.objects.filter(q_w, is_active=True).first()
+                # Check benchmark items first to avoid false generic matches
+                for bm in BENCHMARK_HEADPHONES:
+                    if proposed_product_name.lower() in bm["name"].lower() or bm["name"].lower() in proposed_product_name.lower():
+                        items_to_checkout.append({
+                            "id": bm["id"],
+                            "name": bm["name"],
+                            "price": bm["price"],
+                            "quantity": 1,
+                            "merchant": bm["merchant"],
+                            "image_url": bm["image_url"],
+                        })
+                        break
 
-                if db_prod:
-                    first_img = db_prod.images.first() if hasattr(db_prod, "images") else None
-                    img_url = first_img.image_url if first_img else getattr(db_prod, "image_url", "")
-                    items_to_checkout.append({
-                        "id": str(db_prod.id),
-                        "name": db_prod.name,
-                        "slug": db_prod.slug,
-                        "price": float(db_prod.discount_price if db_prod.discount_price else db_prod.price),
-                        "quantity": 1,
-                        "merchant": db_prod.store.name if db_prod.store else "RazorHub Verified Store",
-                        "image_url": img_url or "",
-                    })
+                if not items_to_checkout:
+                    db_prod = Product.objects.filter(name__iexact=proposed_product_name, is_active=True).first()
+                    if not db_prod:
+                        db_prod = Product.objects.filter(name__icontains=proposed_product_name, is_active=True).first()
+                    if not db_prod:
+                        words = [w for w in proposed_product_name.split() if len(w) > 2]
+                        if words:
+                            q_w = Q()
+                            for w in words:
+                                q_w |= Q(name__icontains=w)
+                            db_prod = Product.objects.filter(q_w, is_active=True).first()
+
+                    if db_prod:
+                        first_img = db_prod.images.first() if hasattr(db_prod, "images") else None
+                        img_url = first_img.image_url if first_img else getattr(db_prod, "image_url", "")
+                        items_to_checkout.append({
+                            "id": str(db_prod.id),
+                            "name": db_prod.name,
+                            "slug": db_prod.slug,
+                            "price": float(db_prod.discount_price if db_prod.discount_price else db_prod.price),
+                            "quantity": 1,
+                            "merchant": db_prod.store.name if db_prod.store else "RazorHub Verified Store",
+                            "image_url": img_url or "",
+                        })
 
             # 3. Check if user specified a concrete product to buy/checkout right now
-            has_specific_product = (
-                any(b in text for b in ["sony", "jbl", "boat", "sennheiser", "xbox", "playstation", "ps5", "nintendo", "switch", "macbook"]) or
-                (any(w in text for w in ["buy", "add", "take", "order", "purchase"]) and any(k in text for k in ["ssd", "laptop", "mouse", "keyboard", "phone", "monitor", "headphone", "earphone", "console"]))
-            )
+            if not items_to_checkout:
+                clean_product_query = re.sub(
+                    r"\b(buy|purchase|order|checkout|take|add|get|want|need|please|for me|now|this|the|a|an|to my cart|and checkout)\b",
+                    "",
+                    user_message,
+                    flags=re.IGNORECASE
+                ).strip()
+                clean_product_query = re.sub(r"\s+", " ", clean_product_query).strip()
 
-            if not items_to_checkout and has_specific_product:
                 if "sony" in text and any(w in text for w in ["buy", "add", "take", "order", "headphones", "checkout"]):
                     target = BENCHMARK_HEADPHONES[0]
                     items_to_checkout.append({
@@ -1304,18 +1387,33 @@ class AgenticCommerceService:
                         "merchant": target["merchant"],
                         "image_url": target["image_url"],
                     })
-                else:
-                    search_results = DeterministicCommerceTools.searchProducts(query=user_message)
+                elif len(clean_product_query) >= 2:
+                    search_results = DeterministicCommerceTools.searchProducts(query=clean_product_query)
                     if search_results:
                         target = search_results[0]
                         items_to_checkout.append({
                             "id": str(target["id"]),
                             "name": target["name"],
+                            "slug": target.get("slug", ""),
                             "price": target["price"],
                             "quantity": 1,
                             "merchant": target.get("merchant", "RazorHub Verified Store"),
                             "image_url": target.get("image_url", ""),
                         })
+                    else:
+                        db_p = Product.objects.filter(name__icontains=clean_product_query, is_active=True).first()
+                        if db_p:
+                            first_img = db_p.images.first() if hasattr(db_p, "images") else None
+                            img_url = first_img.image_url if first_img else getattr(db_p, "image_url", "")
+                            items_to_checkout.append({
+                                "id": str(db_p.id),
+                                "name": db_p.name,
+                                "slug": db_p.slug,
+                                "price": float(db_p.discount_price if db_p.discount_price else db_p.price),
+                                "quantity": 1,
+                                "merchant": db_p.store.name if db_p.store else "RazorHub Verified Store",
+                                "image_url": img_url or "",
+                            })
 
             # 4. If still no items to checkout (empty cart / generic checkout without named product), NEVER fabricate random products!
             if not items_to_checkout:
@@ -1357,6 +1455,18 @@ class AgenticCommerceService:
             else:
                 item_names_str = f"**{items_to_checkout[0]['name']}** and {len(items_to_checkout) - 1} other item(s)"
 
+            # Generate cross-sell/upsell for checkout items
+            checkout_recommendations = {"cross_sell": [], "upsell": []}
+            try:
+                from intelligence.services.upsell_service import UpsellService
+                checkout_recommendations = UpsellService.build_checkout_recommendations(
+                    cart_items=items_to_checkout,
+                    user=user,
+                    limit=3,
+                )
+            except Exception as e:
+                logger.warning(f"Cross-sell generation for checkout failed: {e}")
+
             if validation["decision"] == "RULES_NOT_CONFIGURED":
                 msg = (
                     f"I have assembled your cart with {item_names_str}.\n\n"
@@ -1372,6 +1482,8 @@ class AgenticCommerceService:
                     "intent": CommerceIntent.CHECKOUT,
                     "cart": calculated,
                     "approval_card": validation.get("approval_card"),
+                    "cross_sell_suggestions": checkout_recommendations.get("cross_sell", []),
+                    "upsell_suggestions": checkout_recommendations.get("upsell", []),
                     "suggested_followups": [
                         "Review Policy Settings",
                         "Cancel transaction",
@@ -1392,6 +1504,8 @@ class AgenticCommerceService:
                     "intent": CommerceIntent.CHECKOUT,
                     "cart": calculated,
                     "approval_card": validation["approval_card"],
+                    "cross_sell_suggestions": checkout_recommendations.get("cross_sell", []),
+                    "upsell_suggestions": checkout_recommendations.get("upsell", []),
                     "suggested_followups": [
                         "Approve & Execute Payment",
                         "Cancel transaction",
@@ -1400,21 +1514,27 @@ class AgenticCommerceService:
                 }
 
             elif validation["decision"] == "AUTO_APPROVE":
-                exec_res = DeterministicCommerceTools.executePayment(str(intent_obj.id), user=user)
+                card = DeterministicCommerceTools.requestApproval(intent_obj)
+                card["rules_configured"] = True
                 msg = (
-                    f"Payment of **₹{calculated['total_amount']:,.2f}** was **Auto-Approved** (< ₹2,000 threshold).\n"
-                    f"Your order **#ORD-{exec_res['order_id']}** is confirmed with delivery in **{exec_res['delivery_eta']}**!\n"
-                    f"Payment Reference: `{exec_res['payment_reference']}`."
+                    f"I have assembled your cart with {item_names_str}.\n\n"
+                    f"• Subtotal: ₹{calculated['subtotal']:,.2f}\n"
+                    f"• Delivery Fee: ₹{calculated['delivery_fee']:,.2f}\n"
+                    f"• **Final Payable: ₹{calculated['total_amount']:,.2f}**\n\n"
+                    f"✅ **Policy Pre-Approved (< ₹2,000 threshold)**\n"
+                    f"This transaction is within your auto-approval limits. Please review the transaction details and choose your payment action below."
                 )
                 return {
                     "message": msg,
-                    "intent": CommerceIntent.PAY,
+                    "intent": CommerceIntent.CHECKOUT,
                     "cart": calculated,
-                    "payment_success": exec_res,
+                    "approval_card": card,
+                    "cross_sell_suggestions": checkout_recommendations.get("cross_sell", []),
+                    "upsell_suggestions": checkout_recommendations.get("upsell", []),
                     "suggested_followups": [
-                        "Track order status",
-                        "Download tax invoice",
-                        "Shop more electronics",
+                        "Approve & Execute Payment",
+                        "Pay via Razorpay",
+                        "Cancel transaction",
                     ],
                 }
             else:

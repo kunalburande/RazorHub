@@ -49,6 +49,24 @@ export interface PaymentSuccessData {
   cleared_product_ids?: number[];
 }
 
+export interface RecommendationItem {
+  id: string;
+  name: string;
+  slug: string;
+  price: number;
+  original_price?: number;
+  image_url: string;
+  category: string;
+  brand?: string;
+  merchant?: string;
+  rating?: number;
+  in_stock: boolean;
+  reason: string;
+  type: 'cross_sell' | 'upsell';
+  price_diff?: number;
+  relationship?: string;
+}
+
 export interface ChatMessage {
   id: string;
   sender: 'user' | 'agent';
@@ -58,6 +76,8 @@ export interface ChatMessage {
   cart?: any;
   approval_card?: ApprovalCardData;
   payment_success?: PaymentSuccessData;
+  cross_sell_suggestions?: RecommendationItem[];
+  upsell_suggestions?: RecommendationItem[];
   suggested_followups?: string[];
   timestamp: string;
 }
@@ -289,6 +309,8 @@ export function useAgenticCommerce() {
         cart: res.cart,
         approval_card: res.approval_card,
         payment_success: res.payment_success,
+        cross_sell_suggestions: res.cross_sell_suggestions,
+        upsell_suggestions: res.upsell_suggestions,
         suggested_followups: res.suggested_followups || roleConfig.scenarios,
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       };
@@ -408,7 +430,10 @@ export function useAgenticCommerce() {
           if (m.approval_card && m.approval_card.intent_id === intentId) {
             return {
               ...m,
-              approval_card: undefined,
+              approval_card: {
+                ...m.approval_card,
+                status: 'EXECUTED',
+              },
               payment_success: res,
               text: `✅ **Payment Authorized & Executed!**\n\nOrder **#ORD-${res.order_id}** is confirmed for **₹${res.amount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}**.\nReference: \`${res.payment_reference}\`.\nEstimated Delivery: **${res.delivery_eta}**.\n\n*🛒 Checked-out item(s) have been removed from your shopping bag.*`,
               suggested_followups: ['Track order status', 'Download tax receipt', 'Shop more'],
@@ -459,7 +484,10 @@ export function useAgenticCommerce() {
           if (m.approval_card && m.approval_card.intent_id === intentId) {
             return {
               ...m,
-              approval_card: undefined,
+              approval_card: {
+                ...m.approval_card,
+                status: 'REJECTED',
+              },
               text: '❌ **Transaction Cancelled.** You rejected the payment request. Your cart items remain saved.',
               suggested_followups: ['Search other products', 'Adjust consent limits'],
             };

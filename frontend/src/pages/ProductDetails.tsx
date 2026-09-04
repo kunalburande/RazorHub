@@ -67,6 +67,7 @@ export default function ProductDetails() {
   const [recommendationsLoading, setRecommendationsLoading] = useState(true);
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
   const [reviewError, setReviewError] = useState('');
+  const [crossSellAdded, setCrossSellAdded] = useState<Record<string | number, boolean>>({});
 
   const [reviewForm, setReviewForm] = useState({
     name: '',
@@ -654,6 +655,108 @@ export default function ProductDetails() {
             >
               <Zap className="h-4 w-4" /> View Premium Model ({formatPrice(price(topUpsell))})
             </Link>
+          </div>
+        </section>
+      )}
+
+      {/* REVENUE GROWTH STRATEGY 3: Relevance-Gated Cross-Sell / You Might Also Need */}
+      {recommendations?.cross_sell && recommendations.cross_sell.length > 0 && (
+        <section className="mt-8 rounded-2xl border border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-surface to-surface p-6 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-white shadow-xs">
+                <Sparkles className="h-3.5 w-3.5" />
+              </span>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  You Might Also Need (Compatible Accessories)
+                </span>
+                <p className="text-xs text-secondary mt-0.5">
+                  Complementary products curated specifically for your {product?.category?.name?.toLowerCase() || 'selection'}
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-3 py-1 text-[11px] font-bold text-amber-600 dark:text-amber-400 border border-amber-500/25">
+              Relevance-Gated • Policy Verified
+            </span>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {recommendations.cross_sell.map((item) => {
+              const itemPrice = price(item);
+              const reason = recommendations?.opportunity_metrics?.[item.id]?.reason || `Compatible accessory for your ${product?.category?.name?.toLowerCase() || 'purchase'}`;
+              const isAdded = crossSellAdded[item.id];
+              return (
+                <div
+                  key={item.id}
+                  className="rounded-xl border border-border bg-surface p-4 flex flex-col justify-between hover:border-amber-500/40 transition-all shadow-xs group"
+                >
+                  <div className="space-y-3">
+                    <Link to={`/product/${item.slug}`} className="block relative aspect-square w-full rounded-lg overflow-hidden bg-muted/40 p-2 border border-border/50">
+                      <img
+                        src={productImage(item)}
+                        alt={item.name}
+                        onError={(e) => {
+                          (e.currentTarget as HTMLImageElement).src = FALLBACK_IMAGE;
+                        }}
+                        className="h-full w-full object-contain group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <span className="absolute top-2 right-2 rounded-md bg-surface/90 px-1.5 py-0.5 text-[10px] font-bold text-amber-500 border border-border backdrop-blur-xs">
+                        ★ {Number(item.rating || 4.5).toFixed(1)}
+                      </span>
+                    </Link>
+
+                    <div>
+                      <span className="inline-block px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/10 text-amber-600 dark:text-amber-400 line-clamp-1 mb-1.5 border border-amber-500/20">
+                        {reason}
+                      </span>
+                      <Link to={`/product/${item.slug}`} className="block font-bold text-xs sm:text-sm text-primary group-hover:text-accent transition-colors line-clamp-2">
+                        {item.name}
+                      </Link>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border flex items-center justify-between gap-2">
+                    <div>
+                      <div className="text-sm font-black text-primary">
+                        {formatPrice(itemPrice)}
+                      </div>
+                      {item.discount_price && (
+                        <div className="text-[10px] text-secondary line-through">
+                          {formatPrice(item.price)}
+                        </div>
+                      )}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        addToCart(item, 1);
+                        setCrossSellAdded(prev => ({ ...prev, [item.id]: true }));
+                        setTimeout(() => {
+                          setCrossSellAdded(prev => ({ ...prev, [item.id]: false }));
+                        }, 1500);
+                      }}
+                      className={`py-1.5 px-3 rounded-xl text-xs font-bold text-white shadow-xs cursor-pointer flex items-center gap-1 transition-all active:scale-95 ${
+                        isAdded ? 'bg-emerald-600' : 'bg-amber-500 hover:bg-amber-600'
+                      }`}
+                    >
+                      {isAdded ? (
+                        <>
+                          <Check className="h-3.5 w-3.5" />
+                          <span>Added</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="h-3.5 w-3.5" />
+                          <span>Add to Bag</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </section>
       )}

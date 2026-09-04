@@ -49,7 +49,7 @@ import {
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useAgenticCommerce } from '../hooks/useAgenticCommerce';
-import type { CanvasTabType, ProductItem } from '../hooks/useAgenticCommerce';
+import type { CanvasTabType, ProductItem, RecommendationItem } from '../hooks/useAgenticCommerce';
 import { price, formatPrice, productImage, getCategoryFallbackImage } from '../lib/products';
 import type { ProductType } from '../lib/products';
 import { playAddToCartSound, playRemoveFromCartSound } from '../lib/audio';
@@ -287,6 +287,15 @@ function FormattedCommerceMessage({
                 </div>
 
                 <div className="flex items-center gap-1.5 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onActionClick(`buy ${prod.name}`)}
+                    className="px-2.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl text-xs font-bold shadow-xs cursor-pointer flex items-center gap-1 transition-all"
+                    title="Direct Checkout & Pay"
+                  >
+                    <Zap className="w-3 h-3" />
+                    <span>Buy</span>
+                  </button>
                   <button
                     type="button"
                     onClick={() => onAddToCart(prod)}
@@ -2011,43 +2020,46 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                     </div>
                   )}
 
-                  {/* ── INTERACTIVE FOLLOW-UP OPTIONS & ACTION CHIPS ── */}
-                  {m.sender === 'agent' && m.suggested_followups && m.suggested_followups.length > 0 && (
-                    <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 space-y-1.5">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1">
-                        <Sparkles className="w-3 h-3 text-indigo-500" />
-                        <span>Suggested Actions & Follow-ups:</span>
-                      </span>
-                      <div className="flex flex-wrap gap-1.5">
-                        {m.suggested_followups.map((sug, sIdx) => (
-                          <button
-                            key={sIdx}
-                            type="button"
-                            onClick={() => sendMessage(sug)}
-                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs hover:scale-102 active:scale-98"
-                          >
-                            <ChevronRight className="w-3 h-3 text-indigo-500" />
-                            <span>{sug}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
                   {/* ── APPROVAL CARD ── */}
                   {m.approval_card && (
-                    <div className="rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-50/90 dark:bg-amber-950/20 p-4 space-y-3 animate-in fade-in shadow-xs">
+                    <div className={`rounded-2xl border p-4 space-y-3 animate-in fade-in shadow-xs ${
+                      m.approval_card.status === 'EXECUTED' || m.approval_card.status === 'PAID' || m.payment_success
+                        ? 'border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/90 dark:bg-emerald-950/20'
+                        : m.approval_card.status === 'REJECTED'
+                        ? 'border-rose-300 dark:border-rose-500/30 bg-rose-50/90 dark:bg-rose-950/20'
+                        : 'border-amber-300 dark:border-amber-500/30 bg-amber-50/90 dark:bg-amber-950/20'
+                    }`}>
                       <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-500/20 pb-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                          <AlertTriangle className="w-3.5 h-3.5" />
-                          <span>Confirmation Required</span>
+                        <span className={`text-[10px] font-black uppercase tracking-wider flex items-center gap-1 ${
+                          m.approval_card.status === 'EXECUTED' || m.approval_card.status === 'PAID' || m.payment_success
+                            ? 'text-emerald-700 dark:text-emerald-400'
+                            : m.approval_card.status === 'REJECTED'
+                            ? 'text-rose-700 dark:text-rose-400'
+                            : 'text-amber-700 dark:text-amber-400'
+                        }`}>
+                          {m.approval_card.status === 'EXECUTED' || m.approval_card.status === 'PAID' || m.payment_success ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>Payment Executed</span>
+                            </>
+                          ) : m.approval_card.status === 'REJECTED' ? (
+                            <>
+                              <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                              <span>Transaction Cancelled</span>
+                            </>
+                          ) : (
+                            <>
+                              <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                              <span>Confirmation Required</span>
+                            </>
+                          )}
                         </span>
                         <span className="text-[10px] font-bold text-slate-700 dark:text-zinc-300">
                           Policy: {m.approval_card.policy}
                         </span>
                       </div>
 
-                      {(!policy?.is_configured || (m.approval_card as any)?.rules_configured === false) && (
+                      {(!policy?.is_configured || (m.approval_card as any)?.rules_configured === false) && m.approval_card.status !== 'EXECUTED' && m.approval_card.status !== 'REJECTED' && (
                         <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-bold">
                           <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
                           <div className="flex-1">
@@ -2077,55 +2089,307 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-2 border-t border-amber-200 dark:border-amber-500/20">
-                        <button
-                          type="button"
-                          disabled={approving}
-                          onClick={() => rejectTransaction(m.approval_card!.intent_id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50 transition"
-                        >
-                          Reject
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={approving}
-                          onClick={() => openRazorpayModal(m.approval_card!.amount, m.approval_card!.intent_id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-black bg-[#0C2340] hover:bg-[#143560] text-white shadow-md cursor-pointer flex items-center justify-center gap-1 border border-[#3395FF]/40 disabled:opacity-50 transition"
-                        >
-                          <CreditCard className="w-3.5 h-3.5 text-[#3395FF]" />
-                          <span>Pay Razorpay</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          disabled={approving}
-                          onClick={() => {
-                            if (!policy?.is_configured || (m.approval_card as any)?.rules_configured === false) {
-                              setCanvasTab('policy');
-                              setShowPolicyModal(true);
-                            } else {
-                              approveTransaction(m.approval_card!.intent_id);
-                            }
-                          }}
-                          className={`flex-1 py-2 rounded-xl text-xs font-black text-white shadow-md cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 transition ${
-                            !policy?.is_configured || (m.approval_card as any)?.rules_configured === false
-                              ? 'bg-amber-600 hover:bg-amber-700'
-                              : 'bg-emerald-600 hover:bg-emerald-700'
-                          }`}
-                        >
-                          {approving ? (
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          ) : (
+                      {/* ── 3 ACTION BUTTONS (Reject, Pay Razorpay, Configure & Pay / Approve & Pay) ── */}
+                      {m.approval_card.status === 'EXECUTED' || m.approval_card.status === 'PAID' || m.payment_success ? (
+                        <div className="flex items-center gap-2 pt-2 border-t border-emerald-200 dark:border-emerald-500/20">
+                          <button
+                            type="button"
+                            disabled
+                            className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed opacity-50"
+                          >
+                            Reject
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            className="flex-1 py-2 rounded-xl text-xs font-black bg-[#0C2340]/50 text-white/60 flex items-center justify-center gap-1 border border-[#3395FF]/20 cursor-not-allowed"
+                          >
+                            <CreditCard className="w-3.5 h-3.5 text-[#3395FF]/50" />
+                            <span>Pay Razorpay</span>
+                          </button>
+                          <div className="flex-1 py-2 rounded-xl text-xs font-black bg-emerald-600 text-white flex items-center justify-center gap-1 shadow-xs">
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                          )}
-                          <span>
-                            {!policy?.is_configured || (m.approval_card as any)?.rules_configured === false
-                              ? 'Configure & Pay'
-                              : 'Approve & Pay'}
-                          </span>
-                        </button>
+                            <span>Paid & Confirmed</span>
+                          </div>
+                        </div>
+                      ) : m.approval_card.status === 'REJECTED' ? (
+                        <div className="flex items-center gap-2 pt-2 border-t border-rose-200 dark:border-rose-500/20">
+                          <div className="flex-1 py-2 rounded-xl text-xs font-black bg-rose-600 text-white flex items-center justify-center gap-1 shadow-xs">
+                            <XCircle className="w-3.5 h-3.5" />
+                            <span>Rejected</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => openRazorpayModal(m.approval_card!.amount, m.approval_card!.intent_id)}
+                            className="flex-1 py-2 rounded-xl text-xs font-black bg-[#0C2340] hover:bg-[#143560] text-white shadow-md cursor-pointer flex items-center justify-center gap-1 border border-[#3395FF]/40 transition"
+                          >
+                            <CreditCard className="w-3.5 h-3.5 text-[#3395FF]" />
+                            <span>Pay Razorpay</span>
+                          </button>
+                          <button
+                            type="button"
+                            disabled
+                            className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500 cursor-not-allowed opacity-50"
+                          >
+                            Configure & Pay
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 pt-2 border-t border-amber-200 dark:border-amber-500/20">
+                          <button
+                            type="button"
+                            disabled={approving}
+                            onClick={() => rejectTransaction(m.approval_card!.intent_id)}
+                            className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50 transition"
+                          >
+                            Reject
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={approving}
+                            onClick={() => openRazorpayModal(m.approval_card!.amount, m.approval_card!.intent_id)}
+                            className="flex-1 py-2 rounded-xl text-xs font-black bg-[#0C2340] hover:bg-[#143560] text-white shadow-md cursor-pointer flex items-center justify-center gap-1 border border-[#3395FF]/40 disabled:opacity-50 transition"
+                          >
+                            <CreditCard className="w-3.5 h-3.5 text-[#3395FF]" />
+                            <span>Pay Razorpay</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            disabled={approving}
+                            onClick={() => {
+                              if (!policy?.is_configured || (m.approval_card as any)?.rules_configured === false) {
+                                setCanvasTab('policy');
+                                setShowPolicyModal(true);
+                              } else {
+                                approveTransaction(m.approval_card!.intent_id);
+                              }
+                            }}
+                            className={`flex-1 py-2 rounded-xl text-xs font-black text-white shadow-md cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 transition ${
+                              !policy?.is_configured || (m.approval_card as any)?.rules_configured === false
+                                ? 'bg-amber-600 hover:bg-amber-700'
+                                : 'bg-emerald-600 hover:bg-emerald-700'
+                            }`}
+                          >
+                            {approving ? (
+                              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            ) : (
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            )}
+                            <span>
+                              {!policy?.is_configured || (m.approval_card as any)?.rules_configured === false
+                                ? 'Configure & Pay'
+                                : 'Approve & Pay'}
+                            </span>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── RELEVANCE-GATED CROSS-SELL (COMPANION ACCESSORIES) ── */}
+                  {m.sender === 'agent' && m.cross_sell_suggestions && m.cross_sell_suggestions.length > 0 && (
+                    <div className="rounded-2xl border border-amber-500/30 bg-gradient-to-br from-amber-500/5 via-amber-500/10 to-transparent dark:from-amber-500/10 dark:via-amber-500/5 p-3.5 space-y-2.5 animate-in fade-in shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                          <span>You Might Also Need (Relevant Accessories)</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-400 bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                          Policy Verified
+                        </span>
                       </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {m.cross_sell_suggestions.map((item: RecommendationItem) => {
+                          const matchingCatalog = catalog.find((c) => String(c.id) === item.id || c.slug === item.slug);
+                          const itemImg = item.image_url || (matchingCatalog ? productImage(matchingCatalog) : '') || getCategoryFallbackImage(item.category || item.name);
+                          const isItemAdded = addedSlug === (item.slug || String(item.id));
+                          return (
+                            <div
+                              key={item.id}
+                              className="rounded-xl border border-amber-200/80 dark:border-amber-800/40 bg-white/90 dark:bg-zinc-900/90 p-2.5 space-y-2 hover:border-amber-400/60 transition shadow-2xs group"
+                            >
+                              <div
+                                className="flex items-start gap-2.5 cursor-pointer"
+                                onClick={() => {
+                                  if (matchingCatalog) {
+                                    setSelectedProduct(matchingCatalog);
+                                    setSelectedImageAngle(0);
+                                    setCanvasTab('products');
+                                  }
+                                }}
+                                title="Click to view details on canvas"
+                              >
+                                <div className="w-11 h-11 rounded-lg bg-amber-50 dark:bg-zinc-800 border border-amber-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+                                  <img
+                                    src={itemImg}
+                                    alt={item.name}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = getCategoryFallbackImage(item.category || item.name);
+                                    }}
+                                    className="w-full h-full object-contain p-1 group-hover:scale-105 transition-transform"
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h6 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                                    {item.name}
+                                  </h6>
+                                  <p className="text-[10px] text-amber-700 dark:text-amber-300 line-clamp-1 font-medium mt-0.5">
+                                    {item.reason}
+                                  </p>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs font-black text-slate-900 dark:text-white">
+                                      ₹{item.price.toLocaleString('en-IN')}
+                                    </span>
+                                    {item.original_price && item.original_price > item.price && (
+                                      <span className="text-[10px] text-slate-400 line-through">
+                                        ₹{item.original_price.toLocaleString('en-IN')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-800">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const prodToAdd: ProductType = matchingCatalog || ({
+                                      id: Number(item.id) || (item.id as any),
+                                      name: item.name,
+                                      slug: item.slug,
+                                      price: String(item.price),
+                                      original_price: String(item.original_price || item.price),
+                                      stock: 10,
+                                      rating: String(item.rating || 4.5),
+                                      is_active: true,
+                                      category: { id: 1, name: item.category, slug: item.category.toLowerCase() },
+                                      images: item.image_url ? [{ id: 1, image_url: item.image_url }] : [],
+                                    } as any);
+                                    handleAddToCartAnimated(prodToAdd);
+                                  }}
+                                  className={`flex-1 py-1.5 px-2 rounded-lg text-[10px] font-bold text-white shadow-xs cursor-pointer flex items-center justify-center gap-1 transition active:scale-98 ${
+                                    isItemAdded
+                                      ? 'bg-emerald-600'
+                                      : 'bg-amber-600 hover:bg-amber-700'
+                                  }`}
+                                >
+                                  {isItemAdded ? (
+                                    <>
+                                      <CheckCircle2 className="w-3 h-3" />
+                                      <span>Added ✓</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ShoppingCart className="w-3 h-3" />
+                                      <span>Add Accessory</span>
+                                    </>
+                                  )}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => sendMessage(`Add ${item.name} to cart & checkout`)}
+                                  className="py-1.5 px-2.5 rounded-lg text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 text-slate-800 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 cursor-pointer flex items-center justify-center gap-1 transition active:scale-98"
+                                >
+                                  <Zap className="w-3 h-3 text-amber-500" />
+                                  <span>Buy</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── RELEVANCE-GATED UPSELL (PREMIUM UPGRADE) ── */}
+                  {m.sender === 'agent' && m.upsell_suggestions && m.upsell_suggestions.length > 0 && (
+                    <div className="rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-500/5 via-purple-500/10 to-transparent dark:from-indigo-500/10 dark:via-purple-500/5 p-3.5 space-y-2 animate-in fade-in shadow-2xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-700 dark:text-indigo-400 flex items-center gap-1.5">
+                          <TrendingUp className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>Performance Upgrade Option</span>
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                          Higher Spec
+                        </span>
+                      </div>
+                      {m.upsell_suggestions.map((item: RecommendationItem) => {
+                        const matchingCatalog = catalog.find((c) => String(c.id) === item.id || c.slug === item.slug);
+                        const itemImg = item.image_url || (matchingCatalog ? productImage(matchingCatalog) : '') || getCategoryFallbackImage(item.category || item.name);
+                        return (
+                          <div
+                            key={item.id}
+                            className="rounded-xl border border-indigo-200/80 dark:border-indigo-800/40 bg-white/90 dark:bg-zinc-900/90 p-3 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 hover:border-indigo-400/60 transition shadow-2xs"
+                          >
+                            <div
+                              className="flex items-center gap-3 cursor-pointer min-w-0"
+                              onClick={() => {
+                                if (matchingCatalog) {
+                                  setSelectedProduct(matchingCatalog);
+                                  setSelectedImageAngle(0);
+                                  setCanvasTab('products');
+                                }
+                              }}
+                            >
+                              <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-zinc-800 border border-indigo-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+                                <img
+                                  src={itemImg}
+                                  alt={item.name}
+                                  onError={(e) => {
+                                    (e.target as HTMLImageElement).src = getCategoryFallbackImage(item.category || item.name);
+                                  }}
+                                  className="w-full h-full object-contain p-1"
+                                />
+                              </div>
+                              <div className="min-w-0">
+                                <h6 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
+                                  {item.name}
+                                </h6>
+                                <p className="text-[10px] text-indigo-600 dark:text-indigo-400 line-clamp-1 font-medium">
+                                  {item.reason}
+                                </p>
+                                <div className="flex items-center gap-2 mt-0.5">
+                                  <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                                    ₹{item.price.toLocaleString('en-IN')}
+                                  </span>
+                                  {item.price_diff ? (
+                                    <span className="text-[10px] font-bold text-emerald-600">
+                                      (+₹{item.price_diff.toLocaleString('en-IN')} diff)
+                                    </span>
+                                  ) : null}
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const prodToAdd: ProductType = matchingCatalog || ({
+                                    id: Number(item.id) || (item.id as any),
+                                    name: item.name,
+                                    slug: item.slug,
+                                    price: String(item.price),
+                                    original_price: String(item.original_price || item.price),
+                                    stock: 10,
+                                    rating: String(item.rating || 4.5),
+                                    is_active: true,
+                                    category: { id: 1, name: item.category, slug: item.category.toLowerCase() },
+                                    images: item.image_url ? [{ id: 1, image_url: item.image_url }] : [],
+                                  } as any);
+                                  handleAddToCartAnimated(prodToAdd);
+                                }}
+                                className="flex-1 sm:flex-none py-1.5 px-3 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer flex items-center justify-center gap-1 transition active:scale-98"
+                              >
+                                <Zap className="w-3.5 h-3.5" />
+                                <span>Upgrade to This</span>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
@@ -2148,6 +2412,29 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                           <span>View Orders</span>
                           <ExternalLink className="w-3 h-3" />
                         </Link>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── INTERACTIVE FOLLOW-UP OPTIONS & ACTION CHIPS ── */}
+                  {m.sender === 'agent' && m.suggested_followups && m.suggested_followups.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-indigo-500" />
+                        <span>Suggested Actions & Follow-ups:</span>
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {m.suggested_followups.map((sug, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => sendMessage(sug)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs hover:scale-102 active:scale-98"
+                          >
+                            <ChevronRight className="w-3 h-3 text-indigo-500" />
+                            <span>{sug}</span>
+                          </button>
+                        ))}
                       </div>
                     </div>
                   )}

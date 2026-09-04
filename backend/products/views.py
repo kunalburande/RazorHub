@@ -242,6 +242,7 @@ class ProductViewSet(viewsets.ModelViewSet):
         product = self.get_object()
         from .serializers import ProductListSerializer
         from intelligence.services.profit_optimizer import ProfitOptimizerService
+        from intelligence.services.upsell_service import UpsellService
 
         # Run Profit-First Opportunity Engine
         ranked_metrics = ProfitOptimizerService.get_ranked_recommendations(
@@ -278,6 +279,27 @@ class ProductViewSet(viewsets.ModelViewSet):
             else:
                 if len(cross_sell_products) < 4:
                     cross_sell_products.append(p_obj)
+
+        # Augment cross-sell with relevance-gated affinity products if not enough
+        if len(cross_sell_products) < 4:
+            existing_ids = {p.id for p in cross_sell_products + upsell_products}
+            existing_ids.add(product.id)
+            relevant_cross = UpsellService.get_relevant_cross_sell(
+                product=product,
+                user=request.user if request.user.is_authenticated else None,
+                limit=4 - len(cross_sell_products),
+            )
+            for rc in relevant_cross:
+                if rc["product"].id not in existing_ids:
+                    cross_sell_products.append(rc["product"])
+                    # Add metrics for the relevance-gated product
+                    metrics_by_id[rc["product"].id] = {
+                        "reason": rc.get("reason", "Category-relevant complementary product"),
+                        "opportunity_score": 0.6,
+                        "customer_fit": 0.7,
+                        "inventory_health": 0.8,
+                    }
+                    existing_ids.add(rc["product"].id)
 
         # Build Frequently Bought Together bundle from top cross-sell
         fbt_data = None
