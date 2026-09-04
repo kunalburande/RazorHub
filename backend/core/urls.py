@@ -25,6 +25,8 @@ urlpatterns = [
     path('api/products/', include('products.urls')),
     path('api/sellers/', include('sellers.urls')),
     path('api/agent/v1/', include('agent_api.urls')),
+    path('api/agent/quote/', __import__('intelligence.views', fromlist=['AgentQuoteView']).AgentQuoteView.as_view(), name='machine_quote'),
+    path('api/agent/purchase/', __import__('intelligence.views', fromlist=['AgentPurchaseView']).AgentPurchaseView.as_view(), name='machine_purchase'),
     path('api/ai/chat/', __import__('intelligence.views', fromlist=['AgenticChatView']).AgenticChatView.as_view(), name='agentic_chat'),
     path('api/intelligence/', include('intelligence.urls')),
     path('api/agent-runtime/', include('agent_runtime.urls')),

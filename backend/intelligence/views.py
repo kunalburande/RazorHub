@@ -1,3 +1,4 @@
+from decimal import Decimal
 from rest_framework import viewsets, permissions
 from .models import MerchantConfig, Campaign, ProductRelationship, AuditEvent, RecoveryTask
 from rest_framework import serializers
@@ -313,4 +314,448 @@ class CatalogManifestView(APIView):
             qs = qs.filter(category__slug=category_slug)
         manifest = AgentManifestService.build_catalog_manifest(qs[:limit], limit=limit)
         return Response(manifest)
+
+
+class PolicyView(APIView):
+    """
+    GET /api/intelligence/policy/
+    PUT /api/intelligence/policy/
+    Returns active Merchant Policy Language DSL (YAML) and parsed rules.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from intelligence.services.merchant_policy import MerchantPolicyEngine, DEFAULT_POLICY_YAML
+        policy = MerchantPolicyEngine.load_active_policy()
+        return Response({
+            "policy_yaml": DEFAULT_POLICY_YAML,
+            "policy_rules": {k: float(v) if hasattr(v, 'as_tuple') else v for k, v in policy.items()}
+        })
+
+    def put(self, request):
+        from intelligence.services.merchant_policy import MerchantPolicyEngine
+        yaml_text = request.data.get("policy_yaml", "")
+        parsed = MerchantPolicyEngine.parse_policy_yaml(yaml_text)
+        return Response({
+            "success": True,
+            "message": "Merchant policy language validated and applied.",
+            "policy_yaml": yaml_text,
+            "policy_rules": {k: float(v) if hasattr(v, 'as_tuple') else v for k, v in parsed.items()}
+        })
+
+
+class PolicySimulateView(APIView):
+    """
+    POST /api/intelligence/policy/simulate/
+    Accepts: { proposal: { items, total_price, discount_pct, margin_pct, categories }, policy_yaml?: str }
+    Deterministically evaluates proposal against policy and returns explainable gated decision.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.merchant_policy import MerchantPolicyEngine
+        proposal = request.data.get("proposal", {})
+        policy_yaml = request.data.get("policy_yaml")
+
+        policy = None
+        if policy_yaml:
+            policy = MerchantPolicyEngine.parse_policy_yaml(policy_yaml)
+
+        result = MerchantPolicyEngine.evaluate_proposal(proposal, policy=policy)
+        return Response(result)
+
+
+class WhyOfferExplainabilityView(APIView):
+    """
+    POST /api/intelligence/explainability/why-offer/
+    Returns tangible 'WHY THIS OFFER?' proof for any candidate recommendation.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from products.models import Product
+        from intelligence.services.explainability_service import FinancialExplainabilityService
+        candidate_slug = request.data.get("candidate_slug")
+        base_slug = request.data.get("base_slug")
+        customer_intent = request.data.get("customer_intent", "Photography phone under ₹35K")
+        budget = Decimal(str(request.data.get("budget", 35000)))
+
+        candidate = Product.objects.filter(slug=candidate_slug).first() if candidate_slug else None
+        if not candidate:
+            candidate = Product.objects.filter(is_active=True).first()
+
+        base_product = Product.objects.filter(slug=base_slug).first() if base_slug else None
+
+        proof = FinancialExplainabilityService.generate_why_offer_proof(
+            candidate=candidate,
+            base_product=base_product,
+            customer_intent=customer_intent,
+            budget=budget,
+            user=request.user if request.user.is_authenticated else None
+        )
+        return Response(proof)
+
+
+class WhyTransactionAllowedView(APIView):
+    """
+    POST /api/intelligence/explainability/why-transaction/
+    Returns real-time 'WHY IS THIS TRANSACTION ALLOWED?' pre-payment execution proof.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.explainability_service import FinancialExplainabilityService
+        cart_total = Decimal(str(request.data.get("cart_total", 33097.0)))
+        user_budget = Decimal(str(request.data.get("user_budget", 35000.0)))
+        requested_by = request.data.get("requested_by", "AI Shopping Agent")
+        merchant_limit = request.data.get("merchant_limit")
+        if merchant_limit:
+            merchant_limit = Decimal(str(merchant_limit))
+
+        proof = FinancialExplainabilityService.generate_why_transaction_allowed_proof(
+            cart_total=cart_total,
+            user_budget=user_budget,
+            requested_by=requested_by,
+            merchant_limit=merchant_limit,
+            verification_time_seconds=1.4,
+            user=request.user if request.user.is_authenticated else None
+        )
+        return Response(proof)
+
+
+class NegotiationView(APIView):
+    """
+    POST /api/intelligence/negotiate/
+    Evaluates customer bargaining/discount queries against the 6-tier structured benefit ladder.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from products.models import Product
+        from intelligence.services.negotiation_engine import BenefitLadderNegotiator
+        product_slug = request.data.get("product_slug")
+        target_price = request.data.get("requested_target_price")
+        min_margin = Decimal(str(request.data.get("min_margin_percent", 20.0)))
+        free_shipping_val = Decimal(str(request.data.get("free_shipping_value", 100.0)))
+
+        target = Decimal(str(target_price)) if target_price else Decimal("5000.00")
+
+        product = Product.objects.filter(slug=product_slug).first() if product_slug else None
+        if not product:
+            product = Product.objects.filter(is_active=True).first()
+
+        res = BenefitLadderNegotiator.evaluate_negotiation(
+            product=product,
+            requested_target_price=target,
+            min_margin_percent=min_margin,
+            free_shipping_value=free_shipping_val
+        )
+        return Response(res)
+
+
+class InventoryLifecycleValidateView(APIView):
+    """
+    POST /api/intelligence/inventory/validate-pipeline/
+    Executes the 6-stage safe commerce pipeline:
+    recommendation_time → stock check → price check → policy check → checkout → final inventory validation.
+    If stock is depleted before payment, safely interrupts and provides graceful substitute recovery.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from products.models import Product
+        from intelligence.services.inventory_lifecycle import InventoryLifecycleService
+        product_slug = request.data.get("product_slug")
+        initial_price = request.data.get("initial_price")
+        if initial_price:
+            initial_price = Decimal(str(initial_price))
+
+        product = Product.objects.filter(slug=product_slug).first() if product_slug else None
+        if not product:
+            product = Product.objects.filter(is_active=True).first()
+
+        res = InventoryLifecycleService.validate_pipeline(
+            product=product,
+            initial_price=initial_price
+        )
+        return Response(res)
+
+
+class CampaignOrchestrateView(APIView):
+    """
+    POST /api/intelligence/campaigns/orchestrate/
+    Compiles goal-driven post-purchase campaign sequences from merchant natural language intent.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.campaign_orchestrator import AutonomousCampaignOrchestrator
+        prompt = request.data.get("prompt", "Increase revenue from customers who purchased laptops.")
+        res = AutonomousCampaignOrchestrator.compile_goal_driven_campaign(merchant_prompt=prompt)
+        return Response(res)
+
+
+class OutcomeMetricsView(APIView):
+    """
+    GET /api/intelligence/outcomes/metrics/
+    Returns the 9 required business outcome metrics connecting the recommendation loop to real economics.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from intelligence.services.outcome_learning import OutcomeLearningService
+        res = OutcomeLearningService.get_business_outcome_metrics()
+        return Response(res)
+
+
+class OfferEconomicsCompareView(APIView):
+    """
+    POST /api/intelligence/outcomes/compare-offers/
+    Evaluates Offer A vs Offer B economics to demonstrate why expected margin defeats vanity CTR.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.outcome_learning import OutcomeLearningService
+        offer_a = request.data.get("offer_a")
+        offer_b = request.data.get("offer_b")
+        res = OutcomeLearningService.evaluate_offer_economics(offer_a, offer_b)
+        return Response(res)
+
+
+class CustomerFatigueEvaluateView(APIView):
+    """
+    POST /api/intelligence/fatigue/evaluate/
+    Evaluates customer fatigue score and enforces recommendation suppression.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.customer_fatigue import CustomerFatigueService
+        threshold = request.data.get("threshold", 6)
+        res = CustomerFatigueService.evaluate_suppression(request.data, threshold=threshold)
+        return Response(res)
+
+
+class CompetencePersonalizeFrameView(APIView):
+    """
+    POST /api/intelligence/personalization/frame/
+    Generates competence-first, context-grounded conversational framing.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.competence_personalizer import CompetencePersonalizer
+        budget = request.data.get("budget")
+        budget_dec = Decimal(str(budget)) if budget else Decimal("5000.00")
+        compared = request.data.get("compared_products", ["Sony WH-CH520", "JBL Tune 510BT"])
+        res = CompetencePersonalizer.generate_competent_framing(budget=budget_dec, compared_products=compared)
+        return Response(res)
+
+
+class WhyNotThisExplainabilityView(APIView):
+    """
+    POST /api/intelligence/explainability/why-not-this/
+    Returns rejection explainability proof explaining why a competing product was excluded.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.explainability_service import FinancialExplainabilityService
+        name = request.data.get("rejected_product_name", "₹8,999 headphones")
+        price = Decimal(str(request.data.get("rejected_price", 8999.0)))
+        budget = Decimal(str(request.data.get("user_budget", 8000.0)))
+        battery = float(request.data.get("battery_improvement_pct", 6.0))
+
+        proof = FinancialExplainabilityService.generate_why_not_this_proof(
+            rejected_product_name=name,
+            rejected_price=price,
+            user_budget=budget,
+            battery_improvement_pct=battery
+        )
+        return Response(proof)
+
+
+class ConversationalCheckoutView(APIView):
+    """
+    POST /api/intelligence/checkout/conversational/
+    Implements Razorpay in-app conversational checkout:
+    Intent → Shortlist against constraints → In-turn explainability → Mandatory Confirmation → Instant UPI mandate
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.conversational_checkout import ConversationalCheckoutService
+        query = request.data.get("query", "Order lunch under ₹400, here in 30 minutes")
+        confirmed = request.data.get("confirmed", False)
+        order_id = request.data.get("order_id")
+        amount = request.data.get("amount", 380.0)
+        item_name = request.data.get("item_name", "Executive Thali")
+
+        if confirmed and order_id:
+            res = ConversationalCheckoutService.execute_payment_via_mcp(
+                order_id=order_id,
+                amount=float(amount),
+                confirmed_by_user=True,
+                item_name=item_name
+            )
+            return Response(res)
+
+        res = ConversationalCheckoutService.process_conversational_intent(query)
+        return Response(res)
+
+
+class CatalogFeedView(APIView):
+    """
+    GET /api/intelligence/catalog/feed/
+    Returns standard Schema.org JSON-LD merchant feed for AI shopping agents.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from products.models import Product
+        from intelligence.services.agent_manifest import AgentManifestService
+        limit = int(request.query_params.get("limit", 25))
+        qs = Product.objects.filter(is_active=True).select_related('category', 'brand')[:limit]
+        feed = [AgentManifestService.generate_schema_org_json_ld(p) for p in qs]
+        return Response({
+            "standard": "Schema.org/Product Feed",
+            "taxonomy": "Google Product Taxonomy",
+            "total_items": len(feed),
+            "feed": feed
+        })
+
+
+class CatalogReconcileView(APIView):
+    """
+    GET /api/intelligence/catalog/reconcile/
+    Verifies 3-way reconciliation (Page JSON-LD, Merchant Feed, MCP Tool) and sub-minute freshness.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from intelligence.services.catalog_reconciliation import CatalogReconciliationService
+        slug = request.query_params.get("slug")
+        res = CatalogReconciliationService.reconcile_three_copies(slug)
+        return Response(res)
+
+
+class DunningSimulateView(APIView):
+    """
+    POST /api/intelligence/dunning/simulate/
+    Simulates payment.failed webhook handling, retry cadence, and ledger recording.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.dunning_service import DunningRecoveryService
+        action = request.data.get("action", "failed_payment")
+        if action == "win_back":
+            task_id = request.data.get("task_id", "dunn_test_01")
+            amount = request.data.get("amount", 1200.00)
+            res = DunningRecoveryService.simulate_successful_recovery(task_id, amount)
+            return Response(res)
+
+        payment_id = request.data.get("payment_id", "pay_failed_live")
+        email = request.data.get("customer_email", "customer@example.com")
+        amount = request.data.get("amount", 1200.00)
+        attempt = int(request.data.get("attempt_number", 1))
+        res = DunningRecoveryService.handle_failed_payment_webhook(payment_id, email, amount, attempt_number=attempt)
+        return Response(res)
+
+
+class RtoRiskEvaluateView(APIView):
+    """
+    POST /api/intelligence/rto/evaluate/
+    Evaluates COD order for return-to-origin risk and switches to prepaid if score >= 65%.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.rto_risk_service import RtoRiskService
+        pincode = request.data.get("pincode", "800001")
+        refusal_hist = int(request.data.get("customer_refusal_history", 2))
+        amount = request.data.get("order_amount", 3500.00)
+        category = request.data.get("category", "apparel")
+        res = RtoRiskService.evaluate_cod_order(pincode, refusal_hist, amount, category)
+        return Response(res)
+
+
+class PayoutForecastView(APIView):
+    """
+    GET /api/intelligence/payout/forecast/
+    Provides 3-7 day settlement projection with hard bounded disbursement ceiling (≤ ₹50,000).
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def get(self, request):
+        from intelligence.services.payout_forecaster import PayoutForecastingService
+        days = int(request.query_params.get("days", 7))
+        gmv = float(request.query_params.get("baseline_gmv", 28000.00))
+        res = PayoutForecastingService.generate_payout_forecast(days=days, baseline_daily_gmv=gmv)
+        return Response(res)
+
+
+class AgentQuoteView(APIView):
+    """
+    POST /api/agent/quote/
+    Machine quote endpoint for autonomous AI buyer agents.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.x402_merchant_surface import X402MerchantSurface
+        slug = request.data.get("product_slug", "studio-headphones")
+        qty = int(request.data.get("quantity", 1))
+        res = X402MerchantSurface.get_machine_quote(slug, qty)
+        return Response(res)
+
+
+class AgentPurchaseView(APIView):
+    """
+    POST /api/agent/purchase/
+    Machine purchase endpoint following the x402 protocol.
+    Responds with HTTP 402 if signed authorization token is absent.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.x402_merchant_surface import X402MerchantSurface
+        quote_id = request.data.get("quote_id", "")
+        amount = float(request.data.get("amount", 0.0))
+        nonce = request.data.get("nonce", "")
+        token = request.data.get("signed_token") or request.headers.get("X-Authorization-Token")
+        agent_id = request.data.get("agent_id", "autonomous_ai_buyer")
+
+        res = X402MerchantSurface.process_machine_purchase(quote_id, amount, nonce, token, agent_id)
+        status_code = res.get("http_status", 200)
+        return Response(res, status=status_code)
+
+
+class VoiceCommerceTurnView(APIView):
+    """
+    POST /api/intelligence/voice/process-turn/
+    Voice-triggered payment link generation mid-call with audible confirmation gating.
+    """
+    permission_classes = [permissions.AllowAny]
+
+    def post(self, request):
+        from intelligence.services.voice_commerce import VoiceCommerceAgent
+        transcript = request.data.get("transcript", "I want to purchase the studio headphones right now")
+        call_id = request.data.get("call_id")
+        verbal_conf = request.data.get("verbal_confirmation")
+        res = VoiceCommerceAgent.process_voice_call_turn(transcript, call_id, verbal_conf)
+        return Response(res)
+
+
+
+
+
+
+
+
+
+
+
+
 

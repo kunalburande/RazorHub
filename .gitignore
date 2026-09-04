@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────
-#  KinaHub .gitignore
+#  RazorHub .gitignore
 # ──────────────────────────────────────────
 
 # Local environment & secrets (NEVER commit these)
@@ -11,7 +11,7 @@ frontend/.env.local
 backend/.env
 render-backup/
 
-# opencode config
+# OpenCode & AI Assistant Configs
 .opencode/
 
 # ── Python / Django ────────────────────────
@@ -21,16 +21,12 @@ __pycache__/
 *.pyd
 *.pyc
 *.pdb
+*.sqlite3-journal
+test_*.db
 
-# Virtual environment
-# (The user explicitly requested to commit venv to avoid reinstalling dependencies)
+# Virtual environment (active local venv)
 # venv/
-# env/
-# .venv/
 # backend/venv/
-
-# Migrations (optional — remove if you want to commit them)
-# backend/**/migrations/
 
 # ── Node / Vite ────────────────────────────
 node_modules/
@@ -47,6 +43,12 @@ build/
 # ── Dev server logs ────────────────────────
 logs/
 *.log
+
+# ── Audit & Diagnostic Dumps ───────────────
+backend/flagged_products.json
+backend/image_audit_trail.json
+flagged_products.json
+image_audit_trail.json
 
 # ── OS & Editor ────────────────────────────
 .DS_Store

@@ -15,6 +15,15 @@ logger = logging.getLogger(__name__)
 _disabled_providers: set[str] = set()
 
 
+COMPETENCE_FIRST_COMMUNICATION_STANDARD = """
+[COMMUNICATION STANDARD — PERCEIVED INTELLIGENCE OVER ARTIFICIAL ANTHROPOMORPHISM]
+- Personalize the conversation through analytical precision, competence, and usefulness.
+- Do NOT fake being human or engage in artificial friendliness (e.g. NEVER say "Hi bestie! I found something you'll LOVE!!!").
+- Ground every recommendation in facts: budget limits, compared specifications, compatibility, and margin protection.
+- Example of required tone: "Based on your budget and the products you're comparing, this bundle gives you the best value without exceeding ₹5,000."
+"""
+
+
 class BaseAgent:
     """
     Abstract base for all specialized agents.
@@ -37,7 +46,7 @@ class BaseAgent:
         3. OpenRouter (open ecosystem, auto-routing)
         4. Fallbacks (Groq, OpenAI)
         """
-        system_prompt = self.get_system_prompt(context)
+        system_prompt = self.get_system_prompt(context) + "\n" + COMPETENCE_FIRST_COMMUNICATION_STANDARD
         formatted_messages = [{"role": "system", "content": system_prompt}]
         for m in messages:
             role = "user" if m.get("role") in ("user", "human") else "assistant"

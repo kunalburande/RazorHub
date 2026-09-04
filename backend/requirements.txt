@@ -21,12 +21,15 @@ requests>=2.34,<3
 # ── Error Tracking ────────────────────────────
 sentry-sdk>=2,<3
 
-# ── Deployment ────────────────────────────────
+# ── Deployment & Gateways ─────────────────────
 gunicorn>=23.0,<24
 whitenoise>=6.9,<7
 psycopg[binary]>=3.3,<4
 razorpay>=1.4,<2
 
-# ── AI / Vectorization (MerchantOS Integration) ──
+# ── Razorpay MCP Server & Protocol ────────────
+mcp>=1.0.0
+
+# ── AI / Agentic Intelligence (RazorHub Suite) ──
 pgvector>=0.3,<1
 openai>=1.100,<2

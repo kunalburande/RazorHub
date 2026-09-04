@@ -1,4 +1,4 @@
-# KinaHub QA Test Inventory
+# RazorHub QA Test Inventory
 
 ## Overview
 - **Backend**: Django 6 + DRF — 114 API endpoints across 6 apps

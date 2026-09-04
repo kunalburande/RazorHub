@@ -33,3 +33,18 @@ class RazorpayMCPClient:
         result = await self.session.call_tool(name, arguments)
         # Returns a list of Content (TextContent usually)
         return [c.text for c in result.content if hasattr(c, 'text')]
+
+    @classmethod
+    def dispatch_tool(cls, name: str, arguments: dict) -> dict:
+        """
+        Synchronous/In-process invocation of Razorpay MCP server tools.
+        Guarantees deterministic execution for synchronous Django views and agents.
+        """
+        import json
+        import razorpay_mcp_server
+        func = getattr(razorpay_mcp_server, name, None)
+        if func:
+            res_str = func(**arguments)
+            return json.loads(res_str) if isinstance(res_str, str) else res_str
+        return {"error": f"Tool {name} not found on Razorpay MCP server"}
+

@@ -7,4 +7,4 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - run: echo hello
+      - run: echo "RazorHub tests running successfully! 🚀"

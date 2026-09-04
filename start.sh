@@ -26,8 +26,8 @@ done
 # --- UI Header ---
 clear
 echo -e "${CYAN}┌─────────────────────────────────────────────┐${NC}"
-echo -e "${CYAN}│                 ${BOLD}KINA DEV${NC}${CYAN}                   │${NC}"
-echo -e "${CYAN}│ ${DIM}Student-built ecommerce platform 🇳🇵${NC}${CYAN}         │${NC}"
+echo -e "${CYAN}│                 ${BOLD}RazorHub DEV${NC}${CYAN}                   │${NC}"
+echo -e "${CYAN}│   ${DIM}Agentic Commerce & Autonomous Payments${NC}${CYAN}   │${NC}"
 echo -e "${CYAN}└─────────────────────────────────────────────┘${NC}\n"
 
 # --- Create Logs Directory ---

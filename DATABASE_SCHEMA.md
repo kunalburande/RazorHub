@@ -68,7 +68,7 @@ erDiagram
 
 ### 1. Identity & Users (`users`)
 
-Defined in [backend/users/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/users/models.py).
+Defined in [backend/users/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/users/models.py).
 
 #### **`User`** (`users_user`)
 Custom user model extending `django.contrib.auth.models.AbstractUser`.
@@ -116,7 +116,7 @@ Custom user model extending `django.contrib.auth.models.AbstractUser`.
 
 ### 2. Sellers & Storefronts (`sellers`)
 
-Defined in [backend/sellers/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/sellers/models.py).
+Defined in [backend/sellers/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/sellers/models.py).
 
 #### **`SellerProfile`** (`sellers_sellerprofile`)
 - `id` (`BigAutoField`, PK)
@@ -151,7 +151,7 @@ Defined in [backend/sellers/models.py](file:///c:/Users/krbur/OneDrive/Desktop/A
 
 ### 3. Products & Catalog (`products`)
 
-Defined in [backend/products/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/products/models.py).
+Defined in [backend/products/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/products/models.py).
 
 #### **`Category`** (`products_category`)
 - `id` (`BigAutoField`, PK)
@@ -340,7 +340,7 @@ Defined in [backend/orders/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI
 
 ### 5. Wishlist (`wishlist`)
 
-Defined in [backend/wishlist/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/wishlist/models.py).
+Defined in [backend/wishlist/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/wishlist/models.py).
 
 #### **`Wishlist`** (`wishlist_wishlist`)
 - `id` (`BigAutoField`, PK)
@@ -352,7 +352,7 @@ Defined in [backend/wishlist/models.py](file:///c:/Users/krbur/OneDrive/Desktop/
 
 ### 6. CRM & Customer Support (`crm`)
 
-Defined in [backend/crm/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/crm/models.py).
+Defined in [backend/crm/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/crm/models.py).
 
 #### **`CustomerRecord`** (`crm_customerrecord`)
 - `id` (`BigAutoField`, PK)
@@ -429,7 +429,7 @@ Defined in [backend/crm/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/Ki
 
 ### 7. Intelligence & AI Commerce (`intelligence`)
 
-Defined in [backend/intelligence/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/intelligence/models.py).
+Defined in [backend/intelligence/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/intelligence/models.py).
 
 #### **`ProductRelationship`** (`intelligence_productrelationship`)
 - `id` (`BigAutoField`, PK)

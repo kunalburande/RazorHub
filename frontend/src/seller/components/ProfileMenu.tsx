@@ -14,7 +14,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { useThemeContext } from "../context/ThemeContext";
 import { useTranslation } from "../i18n";
-import { useAuth } from "../../../context/AuthContext";
+import { useAuth } from "../../context/AuthContext";
 
 export interface ProfileUser {
   name: string;

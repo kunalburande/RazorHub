@@ -1,4 +1,4 @@
-# KinaHub / Dukan Dev Launcher (PowerShell)
+# RazorHub Dev Launcher (PowerShell)
 # Usage: .\start.bat OR powershell -ExecutionPolicy Bypass -File .\start.ps1
 param(
     [switch]$Offline,
@@ -37,8 +37,8 @@ $StartTime    = Get-Date
 # --- UI Header ---
 Clear-Host
 Write-Host (Cyan "+---------------------------------------------+")
-Write-Host (Cyan "|                 $(Bold 'KINAHUB DEV')                 |")
-Write-Host (Cyan "|   $(Dim 'Ecommerce & Multi-Vendor Platform')        |")
+Write-Host (Cyan "|                 $(Bold 'RazorHub DEV')                 |")
+Write-Host (Cyan "|   $(Dim 'Agentic Commerce & Payments Engine')       |")
 Write-Host (Cyan "+---------------------------------------------+")
 Write-Host ""
 
@@ -189,7 +189,7 @@ $ElapsedStr = [Math]::Round($Elapsed, 1)
 
 # --- Final Summary Dashboard ---
 Write-Host (Dim "=============================================")
-Write-Host "$(Bold 'KinaHub is ready!')"
+Write-Host "$(Bold 'RazorHub is ready!')"
 Write-Host ""
 $BackendDot  = if ($BackendStatus  -eq "ONLINE") { Green  "ONLINE" } else { Red "FAILED" }
 $FrontendDot = if ($FrontendStatus -eq "ONLINE") { Green  "ONLINE" } else { Red "FAILED" }
@@ -216,5 +216,5 @@ try {
     Write-Host (Yellow "Stopping services...")
     Stop-Job  $BackendJob,  $FrontendJob -ErrorAction SilentlyContinue
     Remove-Job $BackendJob, $FrontendJob -Force -ErrorAction SilentlyContinue
-    Write-Host (Green "[OK] KinaHub stopped cleanly.")
+    Write-Host (Green "[OK] RazorHub stopped cleanly.")
 }

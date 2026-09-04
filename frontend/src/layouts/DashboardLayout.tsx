@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Bell, Bot, Building2, ClipboardList, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
+import { BarChart3, Bell, Bot, Building2, ClipboardList, Heart, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTranslation } from '../i18n/LocaleContext';
@@ -13,6 +13,7 @@ export default function DashboardLayout() {
   const roleNav = {
     customer: [
       { to: '/dashboard', label: t('dashboard.navAccount', { defaultValue: 'Account' }), icon: LayoutDashboard },
+      { to: '/wishlist', label: t('nav.wishlist', { defaultValue: 'Wishlist' }), icon: Heart },
       { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
       { to: '/dashboard/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
       { to: '/dashboard/tickets', label: t('dashboard.navSupport', { defaultValue: 'Support' }), icon: Ticket },

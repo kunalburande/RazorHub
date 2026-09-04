@@ -5,6 +5,7 @@ interface SeoProps {
   description?: string;
   image?: string;
   type?: 'website' | 'product';
+  jsonLd?: Record<string, any>;
 }
 
 function upsertMeta(selector: string, attributes: Record<string, string>) {
@@ -19,7 +20,7 @@ function upsertMeta(selector: string, attributes: Record<string, string>) {
   });
 }
 
-export default function Seo({ title, description = 'RazorHub local marketplace for products, seller stores, delivery, and checkout.', image, type = 'website' }: SeoProps) {
+export default function Seo({ title, description = 'RazorHub local marketplace for products, seller stores, delivery, and checkout.', image, type = 'website', jsonLd }: SeoProps) {
   useEffect(() => {
     const fullTitle = title.includes('RazorHub') ? title : `${title} | RazorHub`;
     document.title = fullTitle;
@@ -34,7 +35,17 @@ export default function Seo({ title, description = 'RazorHub local marketplace f
       upsertMeta('meta[property="og:image"]', { property: 'og:image', content: image });
       upsertMeta('meta[name="twitter:image"]', { name: 'twitter:image', content: image });
     }
-  }, [description, image, title, type]);
+
+    if (jsonLd) {
+      let script = document.head.querySelector<HTMLScriptElement>('script[type="application/ld+json"]');
+      if (!script) {
+        script = document.createElement('script');
+        script.type = 'application/ld+json';
+        document.head.appendChild(script);
+      }
+      script.textContent = JSON.stringify(jsonLd);
+    }
+  }, [description, image, title, type, jsonLd]);
 
   return null;
 }

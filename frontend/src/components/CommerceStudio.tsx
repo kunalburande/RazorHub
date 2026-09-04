@@ -61,7 +61,20 @@ export interface CommerceStudioProps {
 
 // ── FREQUENTLY QUERIED PROMPTS ────────────────────────────────────────────────
 const FREQUENT_QUERIES = [
+  'Order lunch under ₹400, here in 30 minutes',
+  'Simulate failed payment dunning recovery',
+  'Analyze RTO return risk for COD order',
+  'Generate cash-flow payout forecast',
+  'Execute x402 machine-payable purchase',
+  'Start voice commerce call order',
+  'Verify 3-way catalog reconciliation and sub-minute freshness',
   'I need a phone for photography under ₹35,000',
+  "Why didn't you recommend the ₹8,999 headphones?",
+  'Show competent recommendation under ₹5,000',
+  'Increase revenue from customers who purchased laptops',
+  'Customer rejected 3 offers today',
+  'Can you get this below ₹5,000?',
+  'Test stock failure on Headphones A',
   'I need wireless headphones under ₹5,000',
   'Compare Sony WH-CH520 vs JBL Tune 510BT',
   'Show backpacks with 15-inch laptop fit',
@@ -109,6 +122,21 @@ function FormattedCommerceMessage({
     return [];
   }, [text]);
 
+  // Extract replace product tags [REPLACE_PRODUCT:old,new]
+  const replaceInfo = useMemo(() => {
+    const match = text.match(/\[REPLACE_PRODUCT:([^,\]]+),([^\]]+)\]/i);
+    if (match) {
+      return { oldSlug: match[1], newSlug: match[2] };
+    }
+    return null;
+  }, [text]);
+
+  // Extract confirm and pay tags [CONFIRM_AND_PAY:slug]
+  const confirmAndPaySlug = useMemo(() => {
+    const match = text.match(/\[CONFIRM_AND_PAY:([^\]]+)\]/i);
+    return match ? match[1] : null;
+  }, [text]);
+
   // Clean raw tags and asterisks around product tags
   const cleanedText = useMemo(() => {
     return text
@@ -116,6 +144,10 @@ function FormattedCommerceMessage({
       .replace(/\[PRODUCT:[^\]]+\]/gi, '')
       .replace(/\*\*\[ADD_BUNDLE:[^\]]+\]\*\*/gi, '')
       .replace(/\[ADD_BUNDLE:[^\]]+\]/gi, '')
+      .replace(/\*\*\[REPLACE_PRODUCT:[^\]]+\]\*\*/gi, '')
+      .replace(/\[REPLACE_PRODUCT:[^\]]+\]/gi, '')
+      .replace(/\*\*\[CONFIRM_AND_PAY:[^\]]+\]\*\*/gi, '')
+      .replace(/\[CONFIRM_AND_PAY:[^\]]+\]/gi, '')
       .trim();
   }, [text]);
 
@@ -152,7 +184,7 @@ function FormattedCommerceMessage({
         is_featured: true,
         is_active: true,
         images: [],
-      } as ProductType;
+      } as unknown as ProductType;
     });
   }, [matchedSlugs, catalog]);
 
@@ -304,6 +336,77 @@ function FormattedCommerceMessage({
           >
             <ShoppingCart className="h-3.5 w-3.5" />
             Add Entire Bundle to Cart
+          </button>
+
+          {/* ── Transparent Proof: WHY THIS OFFER? ── */}
+          <div className="w-full mt-2 pt-2.5 border-t border-indigo-500/20 text-xs">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                <span>WHY THIS OFFER?</span>
+              </span>
+              <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                Confidence: 92%
+              </span>
+            </div>
+            <div className="space-y-1 text-[11px] text-zinc-700 dark:text-zinc-300 font-medium bg-white/70 dark:bg-zinc-900/70 p-3 rounded-xl border border-indigo-500/20">
+              <p><span className="text-secondary font-bold">Customer intent:</span> "Photography phone under ₹35K"</p>
+              <p><span className="text-secondary font-bold">Recommendation:</span> Phone X + protective case</p>
+              <div className="mt-1 space-y-0.5 text-zinc-600 dark:text-zinc-400 text-[10.5px]">
+                <p>• Fits budget</p>
+                <p>• High compatibility confidence</p>
+                <p>• Case has 72% attach rate with Phone X</p>
+                <p>• Case has 24 units available</p>
+                <p>• Expected incremental margin: ₹310</p>
+                <p>• No additional discount required</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Graceful Substitute Replacement Callout ── */}
+      {replaceInfo && (
+        <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-amber-500/5 border border-amber-500/30 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div>
+            <p className="text-xs font-bold text-amber-950 dark:text-amber-200">Graceful Substitute Available</p>
+            <p className="text-[11px] text-amber-800 dark:text-amber-400">
+              Replace unavailable item with verified in-stock Headphones B — ₹7,299
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              const newProd = catalog.find((item) => item.slug === replaceInfo.newSlug || String(item.id) === replaceInfo.newSlug);
+              if (newProd) onAddToCart(newProd);
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-700 active:scale-98 text-white text-xs font-bold shadow-md shadow-amber-500/20 cursor-pointer transition-all"
+          >
+            Replace with Headphones B
+          </button>
+        </div>
+      )}
+
+      {/* ── Conversational In-App Checkout Confirm & Pay Callout (Razorpay MCP) ── */}
+      {confirmAndPaySlug && (
+        <div className="mt-3 p-3.5 rounded-2xl bg-gradient-to-r from-emerald-500/15 via-teal-500/10 to-emerald-500/5 border border-emerald-500/30 flex flex-wrap items-center justify-between gap-3 shadow-xs">
+          <div>
+            <div className="flex items-center gap-1.5 text-xs font-black text-emerald-950 dark:text-emerald-200">
+              <ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+              <span>Razorpay MCP In-App Authorization</span>
+            </div>
+            <p className="text-[11px] text-emerald-800 dark:text-emerald-400 mt-0.5">
+              Liability Shield: Merchant requires buyer cart confirmation before instant UPI mandate creation.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onActionClick(`CONFIRM_AND_PAY:${confirmAndPaySlug}`);
+            }}
+            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:scale-98 text-white text-xs font-bold shadow-md shadow-emerald-500/20 cursor-pointer transition-all"
+          >
+            <Zap className="w-3.5 h-3.5" />
+            <span>Confirm Cart & Authorize UPI Mandate</span>
           </button>
         </div>
       )}
@@ -574,17 +677,18 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
     }
 
     // Case 2: Confirmation / Approval Card Active
-    if (hasApproval) {
+    if (hasApproval && lastMsg?.approval_card) {
+      const card = lastMsg.approval_card;
       return [
         {
-          label: `Pay ₹${lastMsg.approval_card.amount.toLocaleString()} with Razorpay`,
+          label: `Pay ₹${card.amount.toLocaleString()} with Razorpay`,
           action: 'TRIGGER_RAZORPAY',
           icon: CreditCard,
           variant: 'razorpay',
         },
         {
           label: 'Approve & Pay',
-          action: `APPROVE_INTENT_${lastMsg.approval_card.intent_id}`,
+          action: `APPROVE_INTENT_${card.intent_id}`,
           icon: CheckCircle2,
           variant: 'emerald',
         },
@@ -596,7 +700,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
         },
         {
           label: 'Reject / Cancel',
-          action: `REJECT_INTENT_${lastMsg.approval_card.intent_id}`,
+          action: `REJECT_INTENT_${card.intent_id}`,
           icon: XCircle,
           variant: 'rose',
         },
@@ -933,7 +1037,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                         <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border/60 pb-3">
                           <div className="flex items-center gap-2">
                             <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
-                              {selectedProduct.brand?.name || selectedProduct.brand || 'Featured Result'}
+                              {typeof selectedProduct.brand === 'object' ? selectedProduct.brand?.name : (selectedProduct.brand as any) || 'Featured Result'}
                             </span>
                             <span className="text-xs text-secondary font-semibold">
                               {selectedProduct.category?.name || 'Category'}
@@ -1034,7 +1138,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                                 ₹{Number(selectedProduct.price || 8551).toLocaleString('en-IN')}
                               </span>
                               <span className="text-sm text-secondary line-through">
-                                ₹{Number(selectedProduct.original_price || 10999).toLocaleString('en-IN')}
+                                ₹{Number((selectedProduct as any).original_price || 10999).toLocaleString('en-IN')}
                               </span>
                               <span className="px-2.5 py-0.5 rounded-lg text-xs font-black bg-rose-500/15 text-rose-600 border border-rose-500/25">
                                 22% OFF

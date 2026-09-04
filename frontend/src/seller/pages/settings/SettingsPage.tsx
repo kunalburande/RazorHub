@@ -229,11 +229,11 @@ export default function SettingsPage({
         await apiRequest("/users/me/", {
           token,
           method: "PATCH",
-          body: {
+          body: JSON.stringify({
             full_name: profile.fullName,
             business_name: profile.storeName,
             bio: profile.bio,
-          },
+          }),
         });
         await refreshMe();
       }

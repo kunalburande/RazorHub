@@ -50,6 +50,31 @@ Your Capabilities:
         last_message = messages[-1].get("content", "") if messages else ""
         text_lower = last_message.lower()
 
+        # Check for goal-driven post-purchase orchestration
+        if any(w in text_lower for w in ["increase revenue", "purchased laptops", "post purchase", "orchestrat", "lifecycle sequence", "laptop buyers"]):
+            from intelligence.services.campaign_orchestrator import AutonomousCampaignOrchestrator
+            plan = AutonomousCampaignOrchestrator.compile_goal_driven_campaign(last_message)
+            lines = [
+                "🎯 **Autonomous Campaign Orchestrator — Goal-Driven Post-Purchase Lifecycle**\n",
+                f"**Segment:** {plan['segment']}",
+                f"**Goal:** {plan['goal']}\n",
+                "**Eligible Products (Inventory Verified):**"
+            ]
+            for p in plan["eligible_products"]:
+                lines.append(f"• **{p['name']}** — ₹{p['price']:,.0f} (Stock: {p['stock']}, Margin: {p['margin_percent']}%)")
+
+            lines.append("\n**Hard Policy Constraints:**")
+            for c in plan["constraints"]["summary"]:
+                lines.append(f"• {c}")
+
+            lines.append("\n**Dynamic Order-Triggered Cadence:**")
+            for step in plan["cadence"]:
+                act = step.get("action", step.get("event"))
+                lines.append(f"• **{step['stage']}:** {act} *({step['timing_rationale']})*")
+
+            lines.append("\n🔒 *Invariant: Campaign is dynamically generated and goal-driven, replacing static sequences.*")
+            return {"content": "\n".join(lines), "campaign_plan": plan}
+
         # Check for campaign creation request
         if any(w in text_lower for w in ["create", "run", "launch", "start"]) and any(w in text_lower for w in ["campaign", "discount", "promo", "sale", "%", "off"]):
             return self._handle_create_campaign(last_message, messages, context)

@@ -55,6 +55,10 @@ import SettingsPage from "./pages/settings/SettingsPage";
 import RazorHubSellerDashboard from "./pages/RazorHubSellerDashboard";
 import AgentsBridge from "./pages/AgentsBridge";
 import AuditTrail from "./pages/AuditTrail";
+import PolicyEngine from "./pages/PolicyEngine";
+import RecoveryDashboard from "./pages/RecoveryDashboard";
+import RevenueIntelligence from "./pages/RevenueIntelligence";
+import AgentsConsole from "./pages/AgentsConsole";
 import OrdersPage from "../pages/OrdersPage";
 import DocsPage from "./pages/support/DocsPage";
 import ApiPage from "./pages/support/ApiPage";
@@ -765,6 +769,42 @@ export default function SellerPortal() {
             </Link>
 
             <Link
+              to="/seller/policy"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
+                location.pathname.startsWith("/seller/policy")
+                  ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
+              }`}
+            >
+              <Shield className="h-3.5 w-3.5 text-emerald-500" />
+              Policy
+            </Link>
+
+            <Link
+              to="/seller/revenue"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
+                location.pathname.startsWith("/seller/revenue")
+                  ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
+              }`}
+            >
+              <BarChart2 className="h-3.5 w-3.5 text-amber-500" />
+              Revenue
+            </Link>
+
+            <Link
+              to="/seller/recovery"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
+                location.pathname.startsWith("/seller/recovery")
+                  ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-xs"
+                  : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200 hover:bg-gray-200/50 dark:hover:bg-gray-800/50"
+              }`}
+            >
+              <Zap className="h-3.5 w-3.5 text-rose-500" />
+              Recovery
+            </Link>
+
+            <Link
               to="/seller/audit"
               className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 transition-all duration-200 ${
                 isCurrent("/seller/audit")
@@ -836,6 +876,9 @@ export default function SellerPortal() {
         { name: "Customers", href: "/seller/users" },
         { name: "Banking", href: "/seller/banking" },
         { name: "Agents", href: "/seller/agents" },
+        { name: "Policy", href: "/seller/policy" },
+        { name: "Revenue", href: "/seller/revenue" },
+        { name: "Recovery", href: "/seller/recovery" },
         { name: "Risk", href: "/seller/risk" },
         { name: "Audit", href: "/seller/audit" },
         { name: "Settings", href: "/seller/settings" },
@@ -888,6 +931,11 @@ export default function SellerPortal() {
     <Route path="/risk" element={<RiskEnginePage embedded />} />
     {/* Agents — bridge to real Agent Studio */}
     <Route path="/agents" element={<AgentsBridge />} />
+    {/* Intelligence Suite */}
+    <Route path="/policy" element={<PolicyEngine />} />
+    <Route path="/recovery" element={<RecoveryDashboard />} />
+    <Route path="/revenue" element={<RevenueIntelligence />} />
+    <Route path="/console" element={<AgentsConsole />} />
     {/* Audit trail */}
     <Route path="/audit" element={<AuditTrail />} />
     {/* Settings */}

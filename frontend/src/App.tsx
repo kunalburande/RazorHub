@@ -110,6 +110,8 @@ function App() {
                       <Route path="/dashboard" element={<DashboardHome />} />
                       <Route path="/dashboard/orders" element={<OrdersPage mode="customer" />} />
                       <Route path="/dashboard/tickets" element={<CRMPage />} />
+                      <Route path="/wishlist" element={<DashboardHome initialSection="wishlist" />} />
+                      <Route path="/dashboard/wishlist" element={<DashboardHome initialSection="wishlist" />} />
                       <Route path="/notifications" element={<CommunicationCenterPage />} />
                       <Route path="/dashboard/notifications" element={<CommunicationCenterPage />} />
                     </Route>

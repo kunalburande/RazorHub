@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useCart } from '../context/CartContext';
@@ -65,12 +65,18 @@ const PRESET_AVATARS = [
   'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=300&q=80',
 ];
 
-export default function DashboardHome() {
+export type DashboardSection = 'overview' | 'orders' | 'wishlist' | 'addresses' | 'profile' | 'preferences';
+
+export interface DashboardHomeProps {
+  initialSection?: DashboardSection;
+}
+
+export default function DashboardHome({ initialSection }: DashboardHomeProps = {}) {
   const { user } = useAuth();
 
   if (user?.effective_role === 'seller') return <Navigate to="/seller" replace />;
   if (user?.effective_role === 'admin') return <Navigate to="/admin" replace />;
-  return <CustomerDashboard />;
+  return <CustomerDashboard initialSection={initialSection} />;
 }
 
 interface OrderItem {
@@ -103,18 +109,29 @@ interface SavedAddress {
   is_default?: boolean;
 }
 
-function CustomerDashboard() {
+function CustomerDashboard({ initialSection }: DashboardHomeProps = {}) {
   const { user, token, logout, requestDeleteAccount, confirmDeleteAccount } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { addToCart, totalCount: cartTotalCount } = useCart();
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Single active section
-  const [activeSection, setActiveSection] = useState<
-    'overview' | 'orders' | 'wishlist' | 'addresses' | 'profile' | 'preferences'
-  >('overview');
+  const [activeSection, setActiveSection] = useState<DashboardSection>(() => {
+    if (initialSection) return initialSection;
+    if (typeof window !== 'undefined' && window.location.pathname.includes('wishlist')) return 'wishlist';
+    return 'overview';
+  });
+
+  useEffect(() => {
+    if (initialSection) {
+      setActiveSection(initialSection);
+    } else if (location.pathname.includes('wishlist')) {
+      setActiveSection('wishlist');
+    }
+  }, [initialSection, location.pathname]);
 
   // Live Database States
   const [orders, setOrders] = useState<CustomerOrder[]>([]);

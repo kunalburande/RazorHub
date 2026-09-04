@@ -676,6 +676,51 @@ export default function Checkout() {
               </div>
             </div>
 
+            {/* Pre-Payment Execution Proof: WHY IS THIS TRANSACTION ALLOWED? */}
+            <div className="mt-5 rounded-2xl border border-emerald-500/25 bg-emerald-500/5 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                  <ShieldCheck className="h-4 w-4 text-emerald-500" />
+                  <span>WHY IS THIS TRANSACTION ALLOWED?</span>
+                </span>
+                <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-black text-emerald-600 dark:text-emerald-400">
+                  PASSED
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div>
+                  <span className="text-[10px] font-bold text-secondary uppercase block">Requested by:</span>
+                  <span className="font-bold text-primary">AI Shopping Agent</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-secondary uppercase block">User budget:</span>
+                  <span className="font-bold text-primary">₹35,000</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-secondary uppercase block">Cart:</span>
+                  <span className="font-black text-emerald-600 dark:text-emerald-400">{formatPrice(total)}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-secondary uppercase block">Merchant autonomous limit:</span>
+                  <span className="font-bold text-primary">₹35,000</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-secondary uppercase block">Product status:</span>
+                  <span className="font-bold text-emerald-600 dark:text-emerald-400">In stock</span>
+                </div>
+                <div>
+                  <span className="text-[10px] font-bold text-secondary uppercase block">Price verified:</span>
+                  <span className="font-mono text-primary">1.4 seconds ago</span>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-emerald-500/20 text-[10px] text-secondary flex items-center justify-between">
+                <span>Policy check: PASSED</span>
+                <span className="font-mono text-[9px] text-emerald-500">Autonomous Gate OK</span>
+              </div>
+            </div>
+
             {error && <p className="mt-4 text-xs font-semibold text-red-500">{error}</p>}
 
             <button

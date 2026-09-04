@@ -1,7 +1,7 @@
 services:
   # Main backend web service
   - type: web
-    name: kinahub-backend
+    name: razorhub-backend
     runtime: python
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --no-input
     # Migrate, seed, and fix_images run at start (needs DB — Render build env may not have DB access).
@@ -17,14 +17,14 @@ services:
   # Free cron job — pings /ping/ every 10 minutes to prevent cold starts.
   # Render's free cron jobs do NOT spin down your web service.
   - type: cron
-    name: kinahub-keep-alive
+    name: razorhub-keep-alive
     runtime: python
     buildCommand: pip install requests
     schedule: "*/10 * * * *"
     startCommand: python -c "
 import requests, sys;
 try:
-  r = requests.get('https://kinahub-ot0t.onrender.com/ping/', timeout=30);
+  r = requests.get('https://razorhub-ot0t.onrender.com/ping/', timeout=30);
   print(f'Ping OK: {r.status_code}');
   sys.exit(0)
 except Exception as e:
