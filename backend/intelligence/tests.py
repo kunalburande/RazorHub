@@ -1147,6 +1147,74 @@ class ProfitOptimizerTests(TestCase):
         self.assertTrue(turn2["audible_confirmation_verified"])
 
 
+class MultiAgentAuditEventTests(TestCase):
+    """
+    Validates that:
+    1. /api/intelligence/audit/ returns the structured multi-agent audit trail.
+    2. Events carry the required schema: agent_name, action, razorpay_entity, bounded_amounts, gating_mechanism, explainability_text, outcome, trace_id.
+    3. Events exist for all 4 agents: dunning_agent, upsell_agent, campaign_agent, checkout_agent.
+    4. Related events across agents share the same trace_id.
+    5. Public read access (AllowAny) succeeds without authentication headers.
+    """
+    def setUp(self):
+        from rest_framework.test import APIClient
+        self.client = APIClient()
+
+    def test_multi_agent_audit_feed_and_structured_schema(self):
+        response = self.client.get('/api/intelligence/audit/')
+        self.assertEqual(response.status_code, 200)
+
+        data = response.json()
+        self.assertIsInstance(data, list)
+        self.assertGreaterEqual(len(data), 12)
+
+        # 1. Verify all 4 required agents are present in the audit log
+        agent_names = {item['agent_name'] for item in data}
+        self.assertIn('dunning_agent', agent_names)
+        self.assertIn('upsell_agent', agent_names)
+        self.assertIn('campaign_agent', agent_names)
+        self.assertIn('checkout_agent', agent_names)
+
+        # 2. Verify exact structured schema on every item
+        for item in data:
+            self.assertIn('event_id', item)
+            self.assertIn('trace_id', item)
+            self.assertIn('agent_name', item)
+            self.assertIn('action', item)
+            self.assertIn('razorpay_entity', item)
+            self.assertIn('bounded_amounts', item)
+            self.assertIn('gating_mechanism', item)
+            self.assertIn('explainability_text', item)
+            self.assertIn('outcome', item)
+
+            self.assertIsInstance(item['razorpay_entity'], dict)
+            self.assertIn('entity_id', item['razorpay_entity'])
+
+            self.assertIsInstance(item['bounded_amounts'], dict)
+            self.assertIn('currency', item['bounded_amounts'])
+
+        # 3. Verify cross-agent trace linking on Trace 1 (ASUS ROG Ally Checkout ➔ Upsell ➔ Campaign)
+        trace1_events = [item for item in data if item['trace_id'] == 'trace_rog_ally_8901']
+        self.assertGreaterEqual(len(trace1_events), 3)
+        trace1_agents = {item['agent_name'] for item in trace1_events}
+        self.assertIn('checkout_agent', trace1_agents)
+        self.assertIn('upsell_agent', trace1_agents)
+        self.assertIn('campaign_agent', trace1_agents)
+
+        # 4. Verify query filtering by agent
+        dunning_res = self.client.get('/api/intelligence/audit/?agent=dunning_agent')
+        self.assertEqual(dunning_res.status_code, 200)
+        dunning_data = dunning_res.json()
+        self.assertTrue(all('dunning' in item['agent_name'].lower() for item in dunning_data))
+
+        # 5. Verify query filtering by trace_id
+        trace_res = self.client.get('/api/intelligence/audit/?trace_id=trace_dunn_recovery_4102')
+        self.assertEqual(trace_res.status_code, 200)
+        trace_data = trace_res.json()
+        self.assertTrue(all(item['trace_id'] == 'trace_dunn_recovery_4102' for item in trace_data))
+
+
+
 
 
 

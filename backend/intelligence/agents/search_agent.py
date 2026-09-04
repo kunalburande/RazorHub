@@ -139,31 +139,64 @@ Rules:
         else:
             qs = qs.order_by('-rating', '-created_at')
 
-        # 4. Check for direct category matches
+        # 4. Check for direct category matches and synonyms
+        CATEGORY_SYNONYMS = {
+            "mobiles": ["phone", "phones", "smartphone", "smartphones", "mobile", "mobiles", "cellphone", "cellphones", "handset", "iphone", "android", "pixel", "galaxy"],
+            "laptops": ["laptop", "laptops", "notebook", "notebooks", "macbook", "ultrabook", "chromebook", "computer", "pc"],
+            "audio-sound": ["headphone", "headphones", "earphone", "earphones", "earbud", "earbuds", "headset", "audio", "sound", "speaker", "speakers", "soundbar", "tws"],
+            "photography": ["camera", "cameras", "dslr", "mirrorless", "lens", "lenses", "tripod", "gimbal", "photography", "photo"],
+            "gaming": ["gaming", "console", "playstation", "ps5", "xbox", "nintendo", "rog", "controller"],
+            "appliances": ["fridge", "refrigerator", "washing", "machine", "microwave", "oven", "ac", "conditioner", "vacuum", "purifier", "appliance", "appliances"],
+            "sneakers": ["shoes", "shoe", "sneaker", "sneakers", "boots", "footwear", "running", "trainers"],
+            "mens-clothing": ["shirt", "tshirt", "t-shirt", "jeans", "trouser", "trousers", "jacket", "suit", "blazer", "hoodie"],
+            "womens-clothing": ["dress", "saree", "kurti", "top", "skirt", "women"],
+            "furniture": ["sofa", "chair", "table", "bed", "desk", "wardrobe", "furniture"],
+            "books": ["book", "books", "novel", "novels", "paperback"],
+            "groceries": ["grocery", "groceries", "food", "snack", "snacks", "tea", "coffee", "rice", "oil", "pulse"],
+        }
+
         categories = list(Category.objects.all())
         matched_cat = None
-        for word in content_words:
-            variations = [word]
-            if word.endswith('s') and len(word) > 3:
-                variations.append(word[:-1])
-            if word.endswith('ies') and len(word) > 4:
-                variations.append(word[:-3] + 'y')
 
-            for cat in categories:
-                cat_name_lower = cat.name.lower()
-                if any(v in cat_name_lower for v in variations):
-                    matched_cat = cat
+        # Check synonym map first
+        for slug_prefix, syns in CATEGORY_SYNONYMS.items():
+            if any(w in syns for w in content_words):
+                matched_cat = next((c for c in categories if slug_prefix in c.slug.lower() or slug_prefix in c.name.lower()), None)
+                if matched_cat:
                     break
-            if matched_cat:
-                break
+
+        # Fallback to direct word match in category names
+        if not matched_cat:
+            for word in content_words:
+                variations = [word]
+                if word.endswith('s') and len(word) > 3:
+                    variations.append(word[:-1])
+                if word.endswith('ies') and len(word) > 4:
+                    variations.append(word[:-3] + 'y')
+
+                for cat in categories:
+                    cat_name_lower = cat.name.lower()
+                    if any(v in cat_name_lower for v in variations):
+                        matched_cat = cat
+                        break
+                if matched_cat:
+                    break
+
+        # Check if user specifically requested accessories
+        is_accessory_query = any(k in q for k in ["holder", "mount", "case", "cover", "protector", "stand", "strap", "cable", "adapter", "charger", "skin"])
+        if not is_accessory_query:
+            # When searching for devices (smartphones, laptops, tablets), exclude mounts/holders/cases
+            qs = qs.exclude(name__icontains="holder").exclude(name__icontains="mount").exclude(name__icontains="case").exclude(name__icontains="cover")
 
         if matched_cat:
             qs = qs.filter(category=matched_cat)
-            remaining_words = [w for w in content_words if w not in matched_cat.name.lower()]
+            # Remove category synonyms from remaining keywords so they don't filter out devices
+            synonyms_for_cat = CATEGORY_SYNONYMS.get(matched_cat.slug.lower(), [])
+            remaining_words = [w for w in content_words if w not in matched_cat.name.lower() and w not in synonyms_for_cat]
         else:
             remaining_words = content_words
 
-        # 5. Filter by remaining content keywords
+        # 5. Filter by remaining content keywords (e.g. brand, specs)
         for w in remaining_words:
             variations = [w]
             if w.endswith('s') and len(w) > 3:
@@ -171,7 +204,8 @@ Rules:
             word_q = Q()
             for v in variations:
                 word_q |= Q(name__icontains=v) | Q(brand__name__icontains=v) | Q(description__icontains=v)
-            qs = qs.filter(word_q)
+            if qs.filter(word_q).exists():
+                qs = qs.filter(word_q)
 
         products = list(qs[:limit])
 

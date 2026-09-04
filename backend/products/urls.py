@@ -12,5 +12,6 @@ urlpatterns = [
     path('homepage/', homepage_data, name='homepage_data'),
     path('suggestions/', SearchSuggestionsView.as_view()),
     path('ai/chat/', AiChatView.as_view(), name='ai_chat'),
+    path('', ProductViewSet.as_view({'get': 'list'}), name='products_root_list'),
     path('', include(router.urls)),
 ]

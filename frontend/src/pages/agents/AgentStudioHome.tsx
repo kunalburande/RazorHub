@@ -228,11 +228,19 @@ export default function AgentStudioHome() {
             </Link>
 
             <Link
+              to="/agents/executions"
+              className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-purple-500/20 hover:bg-purple-500/30 border border-purple-500/40 text-purple-300 backdrop-blur-md transition-all active:scale-95"
+            >
+              <History className="w-4 h-4" />
+              Executions & Audit Trail
+            </Link>
+
+            <Link
               to="/agents/observability"
               className="inline-flex items-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/40 text-cyan-300 backdrop-blur-md transition-all active:scale-95"
             >
               <Activity className="w-4 h-4" />
-              Observability & Audit
+              Observability & Telemetry
             </Link>
 
 
@@ -294,6 +302,14 @@ export default function AgentStudioHome() {
               {tab === 'ALL' ? `All Agents (${agents.length})` : tab}
             </button>
           ))}
+
+          <Link
+            to="/agents/executions"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-500/10 transition flex items-center gap-1.5"
+          >
+            <History className="w-3.5 h-3.5" />
+            <span>Executions</span>
+          </Link>
         </div>
 
         <button

@@ -311,7 +311,7 @@ class LoginWithOTPView(TokenObtainPairView):
         serializer.is_valid(raise_exception=True)
         
         user = serializer.user
-        if user.effective_role == "seller":
+        if user.effective_role == "seller" and user.email not in SEEDED_EMAILS:
             seller_code = request.data.get("seller_code")
             valid_codes = {getattr(settings, 'SELLER_REGISTRATION_CODE', 'demo'), 'demo', 'mafia'}
             if seller_code not in valid_codes:

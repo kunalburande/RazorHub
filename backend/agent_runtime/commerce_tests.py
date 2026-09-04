@@ -48,6 +48,7 @@ class AgenticCommerceAssistantTests(TestCase):
             daily_limit=Decimal("10000.00"),
             monthly_limit=Decimal("50000.00"),
             allowed_categories=["electronics", "peripherals", "accessories"],
+            is_configured=True,
         )
 
     def test_structured_intent_parsing(self):
@@ -214,3 +215,290 @@ class AgenticCommerceAssistantTests(TestCase):
         data_approve = res_approve.json()
         self.assertTrue(data_approve["success"])
         self.assertEqual(data_approve["status"], "PAID")
+
+    def test_seller_copilot_low_stock_intent(self):
+        """Verifies 'Which products have low stock?' routes to SELLER_INVENTORY with store name and does not checkout."""
+        seller_user = User.objects.create_user(
+            email="seller.nexus@razorhub.test",
+            password="sellerpassword123",
+            username="seller_nexus",
+            role="seller",
+        )
+        from sellers.models import Store, SellerProfile
+        seller_profile = SellerProfile.objects.create(user=seller_user)
+        store = Store.objects.create(
+            seller=seller_profile,
+            name="Nexus Tech Hub",
+            slug="nexus-tech-hub",
+            support_email="seller.nexus@razorhub.test",
+        )
+        seller_client = APIClient()
+        seller_client.force_authenticate(user=seller_user)
+
+        res = seller_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "Which products have low stock?"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertEqual(data["intent"], "SELLER_INVENTORY")
+        self.assertIn("Inventory", data["message"])
+        self.assertIn("Nexus Tech Hub", data["message"])
+        self.assertNotIn("Ananya", data["message"])
+        self.assertNotIn("approval_card", data)
+
+    def test_seller_without_store_notice(self):
+        """Verifies seller without linked store receives clean setup notice without Ananya fallback."""
+        seller_unlinked = User.objects.create_user(
+            email="seller.unlinked@razorhub.test",
+            password="sellerpassword123",
+            username="seller_unlinked",
+            role="seller",
+        )
+        seller_client = APIClient()
+        seller_client.force_authenticate(user=seller_unlinked)
+
+        res = seller_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "Analyze today's store revenue"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertEqual(data["intent"], "SELLER_ANALYTICS")
+        self.assertIn("No Merchant Store Linked", data["message"])
+        self.assertNotIn("Ananya", data["message"])
+
+    def test_seller_copilot_campaign_revenue_intent(self):
+        """Verifies 'Increase revenue from customers who purchased laptops' routes to SELLER_CAMPAIGN."""
+        seller_user = User.objects.create_user(
+            email="seller.growth@razorhub.test",
+            password="sellerpassword123",
+            username="seller_growth",
+            role="seller",
+        )
+        from sellers.models import Store, SellerProfile
+        seller_profile = SellerProfile.objects.create(user=seller_user)
+        Store.objects.create(
+            seller=seller_profile,
+            name="Growth Electronics",
+            slug="growth-electronics",
+            support_email="seller.growth@razorhub.test",
+        )
+        seller_client = APIClient()
+        seller_client.force_authenticate(user=seller_user)
+
+        res = seller_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "Increase revenue from customers who purchased laptops"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertEqual(data["intent"], "SELLER_CAMPAIGN")
+        self.assertIn("Autonomous Campaign Orchestrator", data["message"])
+        self.assertNotIn("approval_card", data)
+
+    def test_seller_copilot_sales_analytics_intent(self):
+        """Verifies 'Analyze today's store revenue' routes to SELLER_ANALYTICS with real store name."""
+        seller_user = User.objects.create_user(
+            email="seller.sales@razorhub.test",
+            password="sellerpassword123",
+            username="seller_sales",
+            role="seller",
+        )
+        from sellers.models import Store, SellerProfile
+        seller_profile = SellerProfile.objects.create(user=seller_user)
+        Store.objects.create(
+            seller=seller_profile,
+            name="Apex Retail Hub",
+            slug="apex-retail-hub",
+            support_email="seller.sales@razorhub.test",
+        )
+        seller_client = APIClient()
+        seller_client.force_authenticate(user=seller_user)
+
+        res = seller_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "Analyze today's store revenue"},
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertEqual(data["intent"], "SELLER_ANALYTICS")
+        self.assertIn("Apex Retail Hub", data["message"])
+        self.assertNotIn("Ananya", data["message"])
+
+    def test_admin_role_command_engine(self):
+        """Verifies admin receives platform-wide metrics with zero Ananya fallback."""
+        admin_user = User.objects.create_user(
+            email="admin@razorhub.test",
+            password="adminpassword123",
+            username="admin_tester",
+            role="admin",
+            is_staff=True,
+        )
+        admin_client = APIClient()
+        admin_client.force_authenticate(user=admin_user)
+
+        # 1. Platform GMV & Orders
+        res_gmv = admin_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "how today's platform GMV and orders"},
+            format="json",
+        )
+        self.assertEqual(res_gmv.status_code, status.HTTP_200_OK)
+        data_gmv = res_gmv.json()
+        self.assertEqual(data_gmv["intent"], "ADMIN_ANALYTICS")
+        self.assertIn("Platform-Wide Performance Summary", data_gmv["message"])
+        self.assertNotIn("Ananya", data_gmv["message"])
+
+        # 2. Dunning simulation
+        res_dunning = admin_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "Simulate failed payment dunning recovery"},
+            format="json",
+        )
+        self.assertEqual(res_dunning.status_code, status.HTTP_200_OK)
+        data_dunning = res_dunning.json()
+        self.assertEqual(data_dunning["intent"], "ADMIN_DUNNING")
+        self.assertIn("Autonomous Platform Payment Dunning & Recovery Engine", data_dunning["message"])
+        self.assertNotIn("Ananya", data_dunning["message"])
+
+        # 3. RTO risk
+        res_rto = admin_client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {"message": "Analyze platform RTO risk"},
+            format="json",
+        )
+        self.assertEqual(res_rto.status_code, status.HTTP_200_OK)
+        data_rto = res_rto.json()
+        self.assertEqual(data_rto["intent"], "ADMIN_RTO_RISK")
+        self.assertIn("Platform Pre-Dispatch Return-To-Origin (RTO) Firewall", data_rto["message"])
+        self.assertNotIn("Ananya", data_rto["message"])
+
+    def test_empty_cart_checkout_guard_no_ssd(self):
+        """Verifies empty bag checkout never fabricates products or SSDs."""
+        res = self.client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {
+                "message": "Proceed with checkout for my bag items",
+                "cart": {"items": [], "total_amount": 0},
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertEqual(data["intent"], "CHECKOUT")
+        self.assertIn("Your shopping bag is currently empty (0 items)", data["message"])
+        self.assertNotIn("approval_card", data)
+        self.assertNotIn("Silicon Power", data["message"])
+        self.assertNotIn("256gb", data["message"].lower())
+        self.assertNotIn("ssd", data["message"].lower())
+
+    def test_unconfigured_policy_blocks_payment(self):
+        """Verifies unconfigured consent policy mandates user rule definition before payment."""
+        unconf_user = User.objects.create_user(
+            email="unconf@razorhub.test",
+            password="testpassword123",
+            username="unconf_user",
+        )
+        policy = AgentUserConsentPolicy.objects.create(
+            user=unconf_user,
+            is_configured=False,
+            approval_threshold=Decimal("2000.00"),
+            per_transaction_limit=Decimal("150000.00"),
+        )
+        client = APIClient()
+        client.force_authenticate(user=unconf_user)
+
+        # 1. Checkout validation returns RULES_NOT_CONFIGURED
+        item = {"id": "sony-wh-ch520", "name": "Sony WH-CH520", "price": 3990.00, "quantity": 1}
+        cart = DeterministicCommerceTools.calculateCart([item])
+        intent = DeterministicCommerceTools.createPaymentIntent(cart_data=cart, user=unconf_user)
+        val = DeterministicCommerceTools.validateTransaction(intent, policy=policy)
+        self.assertEqual(val["decision"], "RULES_NOT_CONFIGURED")
+        self.assertFalse(val["approval_card"]["rules_configured"])
+
+        # 2. Approve endpoint returns 400 with RULES_NOT_CONFIGURED
+        res_approve = client.post(
+            "/api/agent-runtime/commerce/approve/",
+            {"intent_id": str(intent.id)},
+            format="json",
+        )
+        self.assertEqual(res_approve.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(res_approve.json().get("code"), "RULES_NOT_CONFIGURED")
+
+        # 3. executePayment raises ValueError
+        with self.assertRaises(ValueError) as cm:
+            DeterministicCommerceTools.executePayment(str(intent.id), user=unconf_user)
+        self.assertIn("Payment authorization rules have not been configured", str(cm.exception))
+
+    def test_search_laptops_relevance_excludes_consoles(self):
+        """Verifies searching for laptops returns laptops and never gaming consoles."""
+        from products.models import Product, Category
+        cat_laptops, _ = Category.objects.get_or_create(name="Laptops", slug="laptops")
+        cat_gaming, _ = Category.objects.get_or_create(name="Gaming", slug="gaming")
+
+        Product.objects.create(
+            name="MacBook Air M3 Test Model",
+            slug="macbook-air-m3-test-model",
+            category=cat_laptops,
+            price=Decimal("99990.00"),
+            stock=10,
+            is_active=True,
+        )
+        Product.objects.create(
+            name="Sony PlayStation 5 Test Model",
+            slug="ps5-test-model",
+            category=cat_gaming,
+            price=Decimal("49990.00"),
+            stock=5,
+            is_active=True,
+        )
+
+        results = DeterministicCommerceTools.searchProducts(query="laptops")
+        result_names = [p["name"] for p in results]
+        self.assertIn("MacBook Air M3 Test Model", result_names)
+        self.assertNotIn("Sony PlayStation 5 Test Model", result_names)
+
+    def test_affirmative_yes_response_context_checkout(self):
+        """Verifies replying 'yes' to an assistant proposal checks out the proposed item and does not return cosmetics or random jackets."""
+        from products.models import Product, Category
+        cat_gaming, _ = Category.objects.get_or_create(name="Gaming", slug="gaming")
+        Product.objects.create(
+            name="Xbox Series S Test Unit",
+            slug="xbox-series-s-test-unit",
+            category=cat_gaming,
+            price=Decimal("31990.00"),
+            stock=10,
+            is_active=True,
+        )
+
+        self.policy.per_transaction_limit = Decimal("50000.00")
+        self.policy.daily_limit = Decimal("100000.00")
+        self.policy.save()
+
+        history = [
+            {
+                "role": "agent",
+                "content": "My top recommendation is the **Xbox Series S Test Unit** (₹31,990.00) with a rating of 4.8★.\n\nWould you like me to prepare checkout for the **Xbox Series S Test Unit**?",
+            }
+        ]
+
+        res = self.client.post(
+            "/api/agent-runtime/commerce/chat/",
+            {
+                "message": "yes",
+                "history": history,
+            },
+            format="json",
+        )
+        self.assertEqual(res.status_code, status.HTTP_200_OK)
+        data = res.json()
+        self.assertEqual(data["intent"], "CHECKOUT")
+        self.assertIn("approval_card", data)
+        self.assertEqual(data["approval_card"]["product"], "Xbox Series S Test Unit")
+        self.assertNotIn("jacket", data["message"].lower())
+        self.assertNotIn("eyeshadow", data["message"].lower())

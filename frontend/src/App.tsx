@@ -159,6 +159,8 @@ function App() {
                       <Route path="/admin/orders" element={<OrdersPage mode="admin" />} />
                       <Route path="/admin/crm" element={<CRMPage />} />
                       <Route path="/admin/settings" element={<AdminDashboard />} />
+                      <Route path="/admin/audit" element={<AgentExecutionsPage />} />
+                      <Route path="/admin/executions" element={<AgentExecutionsPage />} />
                     </Route>
                   </Routes>
                 </ErrorBoundary>

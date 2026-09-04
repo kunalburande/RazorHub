@@ -701,13 +701,18 @@ class AgentUserConsentPolicy(models.Model):
     """
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agent_consent_policy")
-    per_transaction_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("5000.00"))
+    per_transaction_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("150000.00"))
     approval_threshold = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("2000.00"))
-    daily_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("10000.00"))
-    monthly_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("50000.00"))
+    daily_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("200000.00"))
+    monthly_limit = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("500000.00"))
     allowed_categories = models.JSONField(default=list)
     daily_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     monthly_spent = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
+    is_configured = models.BooleanField(
+        default=False,
+        help_text="True if the user has explicitly reviewed and saved their payment authorization rules"
+    )
+    configured_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

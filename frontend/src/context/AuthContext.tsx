@@ -26,6 +26,8 @@ export interface User {
     tax_id?: string;
     status?: string;
     logo_url?: string;
+    slug?: string;
+    store_slug?: string;
   } | null;
 }
 

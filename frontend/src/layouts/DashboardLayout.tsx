@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
-import { BarChart3, Bell, Bot, Building2, ClipboardList, Heart, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
+import { Activity, BarChart3, Bell, Bot, Building2, ClipboardList, Heart, History, LayoutDashboard, Package, Settings, Sparkles, Store, Ticket, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import ThemeToggle from '../components/ThemeToggle';
 import { useTranslation } from '../i18n/LocaleContext';
@@ -21,6 +21,7 @@ export default function DashboardLayout() {
     seller: [
       { to: '/seller', label: t('dashboard.navDashboard', { defaultValue: 'Dashboard' }), icon: BarChart3 },
       { to: '/agents', label: 'Agent Studio', icon: Bot },
+      { to: '/agents/executions', label: 'Executions & Audit', icon: History },
       { to: '/banking', label: 'Banking', icon: Building2 },
       { to: '/seller', label: t('dashboard.navProducts', { defaultValue: 'Products' }), icon: Package },
       { to: '/seller/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },
@@ -30,6 +31,7 @@ export default function DashboardLayout() {
     admin: [
       { to: '/admin', label: t('dashboard.navOverview', { defaultValue: 'Overview' }), icon: LayoutDashboard },
       { to: '/agents', label: 'Agent Studio', icon: Bot },
+      { to: '/agents/executions', label: 'Executions & Audit', icon: History },
       { to: '/ai', label: t('dashboard.navAI', { defaultValue: 'AI' }), icon: Sparkles },
       { to: '/admin/users', label: t('dashboard.navUsers', { defaultValue: 'Users' }), icon: Users },
       { to: '/admin/orders', label: t('dashboard.navOrders', { defaultValue: 'Orders' }), icon: ClipboardList },

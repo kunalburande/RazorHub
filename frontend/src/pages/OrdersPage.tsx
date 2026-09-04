@@ -11,21 +11,27 @@ interface OrdersPageProps {
 }
 
 export default function OrdersPage({ mode }: OrdersPageProps) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { t } = useTranslation();
   const [orders, setOrders] = useState<OrderType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
 
   function loadOrders() {
+    setIsLoading(true);
     const url = mode === 'seller' ? '/orders/?mode=seller' : '/orders/';
     apiRequest<any>(url, { token })
-      .then((data) => setOrders(unwrapList<OrderType>(data)))
-      .catch(() => setError(t('common.errorRequest', { defaultValue: 'Request failed' })));
+      .then((data) => {
+        const list = unwrapList<OrderType>(data);
+        setOrders(list);
+      })
+      .catch(() => setError(t('common.errorRequest', { defaultValue: 'Request failed' })))
+      .finally(() => setIsLoading(false));
   }
 
   useEffect(() => {
     loadOrders();
-  }, [token, mode]);
+  }, [token, mode, user]);
 
   async function updateStatus(orderId: number, status: string) {
     setError('');
@@ -128,11 +134,20 @@ export default function OrdersPage({ mode }: OrdersPageProps) {
                   </td>
                 </tr>
               ))}
-              {orders.length === 0 && (
+              {isLoading ? (
+                <tr className="border-t border-border">
+                  <td className="py-8 text-center text-secondary" colSpan={8}>
+                    <div className="flex items-center justify-center gap-2">
+                      <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                      <span>{t('common.loading', { defaultValue: 'Loading orders...' })}</span>
+                    </div>
+                  </td>
+                </tr>
+              ) : orders.length === 0 ? (
                 <tr className="border-t border-border">
                   <td className="py-6 text-secondary" colSpan={8}>{t('dashboard.noOrders', { defaultValue: 'No orders yet.' })}</td>
                 </tr>
-              )}
+              ) : null}
             </tbody>
           </table>
         </div>

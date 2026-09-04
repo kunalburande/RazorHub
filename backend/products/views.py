@@ -72,8 +72,16 @@ class ProductViewSet(viewsets.ModelViewSet):
         if mine:
             if not self.request.user.is_authenticated:
                 return queryset.none()
-            if self.request.user.effective_role == "seller":
+            if self.request.user.effective_role == "seller" or getattr(self.request.user, "role", None) == "seller":
                 store = getattr(getattr(self.request.user, "seller_profile", None), "store", None)
+                if not store:
+                    from sellers.models import Store
+                    store = (
+                        Store.objects.filter(seller__user=self.request.user).first()
+                        or Store.objects.filter(support_email__iexact=getattr(self.request.user, "email", "")).first()
+                    )
+                if not store:
+                    return Product.objects.none()
                 return product_queryset().filter(store=store)
             if self.request.user.effective_role == "admin":
                 return product_queryset(include_inactive=True)
@@ -87,12 +95,21 @@ class ProductViewSet(viewsets.ModelViewSet):
         if featured:
             queryset = queryset.filter(is_featured=featured.lower() == 'true')
         if query:
+            clean_q = query.strip()
             queryset = queryset.filter(
-                Q(name__icontains=query) |
-                Q(description__icontains=query) |
-                Q(category__name__icontains=query) |
-                Q(brand__name__icontains=query) |
-                Q(store__name__icontains=query)
+                Q(name__icontains=clean_q) |
+                Q(description__icontains=clean_q) |
+                Q(category__name__icontains=clean_q) |
+                Q(brand__name__icontains=clean_q) |
+                Q(store__name__icontains=clean_q)
+            ).annotate(
+                name_match=Case(
+                    When(name__icontains=clean_q, then=Value(3)),
+                    When(category__name__icontains=clean_q, then=Value(2)),
+                    When(brand__name__icontains=clean_q, then=Value(1)),
+                    default=Value(0),
+                    output_field=DecimalField(max_digits=3, decimal_places=0),
+                )
             )
 
         if price_min or price_max:
@@ -131,6 +148,8 @@ class ProductViewSet(viewsets.ModelViewSet):
             # Note: order_by('?') is expensive on large datasets, but for small-mid size tech site it's fine.
             # Alternately we could fetch all IDs and shuffle them in memory if needed.
             return queryset.order_by('?')
+        elif query:
+            return queryset.order_by('-name_match', '-average_rating', '-created_at')
 
         return queryset
 

@@ -281,6 +281,13 @@ export default function AdminDashboard() {
                 )}
               </button>
 
+              <Link
+                to="/agents/executions"
+                className="flex items-center gap-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-xs font-bold text-purple-600 dark:text-purple-400 px-4 py-2.5 rounded-2xl shadow-xs transition-all active:scale-95 cursor-pointer"
+              >
+                <Activity className="h-3.5 w-3.5 text-purple-500" />
+                <span>Agent Executions & Audit</span>
+              </Link>
 
               <button
                 type="button"

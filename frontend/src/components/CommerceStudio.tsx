@@ -617,13 +617,69 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
     setShowPolicyModal(false);
   };
 
-  // Open Razorpay Modal
-  const openRazorpayModal = (amount: number, intentId?: string) => {
-    const finalAmount = amount > 0 ? amount : totalPrice > 0 ? totalPrice : 8551;
-    setRazorpayAmount(finalAmount);
+  // Open Official Razorpay Checkout Modal
+  const openOfficialRazorpay = (amount: number, intentId?: string) => {
+    const envKey = (import.meta.env.VITE_RAZORPAY_KEY_ID || '').trim();
+    if (
+      typeof (window as any).Razorpay === 'function' &&
+      envKey.startsWith('rzp_test_') &&
+      envKey.length > 15 &&
+      !envKey.includes('placeholder')
+    ) {
+      const options = {
+        key: envKey,
+        amount: Math.round(amount * 100), // paise
+        currency: 'INR',
+        name: 'RazorHub',
+        description: 'Agentic Commerce Checkout (Test Mode)',
+        image: '/favicon.png',
+        prefill: {
+          name: [user?.first_name, user?.last_name].filter(Boolean).join(' ') || user?.username || user?.email || '',
+          email: user?.email || '',
+          contact: (user as any)?.phone || '9999999999',
+        },
+        theme: {
+          color: '#0b66c2',
+        },
+        handler: async function (response: any) {
+          try {
+            const paymentId = response.razorpay_payment_id || `rzp_test_${Date.now()}`;
+            if (intentId) {
+              await approveTransaction(intentId);
+            } else {
+              sendMessage(`I have completed payment of ₹${amount} via Razorpay (Ref: ${paymentId}).`);
+            }
+          } catch (err) {
+            console.error('Razorpay payment capture error:', err);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            console.log('Razorpay modal closed by user');
+          },
+        },
+      };
+
+      try {
+        const rzpInstance = new (window as any).Razorpay(options);
+        rzpInstance.open();
+        return;
+      } catch (err) {
+        console.warn('Official Razorpay open failed, falling back to simulator:', err);
+      }
+    }
+
+    // Fallback to internal simulator if official SDK not ready
+    setRazorpayAmount(amount);
     setRazorpayOrderId(`ORD-${Math.floor(1000 + Math.random() * 9000)}`);
     setPendingIntentId(intentId || null);
     setShowRazorpayModal(true);
+  };
+
+  // Open Razorpay Modal Trigger
+  const openRazorpayModal = (amount: number, intentId?: string) => {
+    const finalAmount = amount > 0 ? amount : totalPrice > 0 ? totalPrice : 8551;
+    openOfficialRazorpay(finalAmount, intentId);
   };
 
   // Complete Razorpay Payment
@@ -655,23 +711,45 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
 
   // Dynamic Contextual Action Buttons based on Prompt, Results, and Cart
   const contextualActionButtons = useMemo(() => {
+    // ── Admin Command Engine Quick Actions ──
+    if (role === 'admin') {
+      return [
+        { label: 'Platform GMV & Orders', action: "how today's platform GMV and orders", icon: TrendingUp, variant: 'indigo' },
+        { label: 'Dunning Recovery Simulation', action: 'Simulate failed payment dunning recovery', icon: RefreshCw, variant: 'emerald' },
+        { label: 'Platform RTO Risk', action: 'Analyze platform RTO risk', icon: ShieldAlert, variant: 'rose' },
+        { label: 'NeonDB Health', action: 'Check NeonDB infrastructure health', icon: Cpu, variant: 'muted' },
+      ];
+    }
+
+    // ── Seller Copilot Quick Actions ──
+    if (role === 'seller') {
+      return [
+        { label: 'Low Stock Alerts', action: 'Which products have low stock?', icon: Package, variant: 'amber' },
+        { label: "Today's Store Revenue", action: "Analyze today's store revenue", icon: TrendingUp, variant: 'indigo' },
+        { label: 'Overdue Invoices', action: 'Show overdue invoices for collection', icon: DollarSign, variant: 'muted' },
+        { label: 'Growth Campaigns', action: 'Increase revenue from customers who purchased laptops', icon: Zap, variant: 'muted' },
+      ];
+    }
+
     const lastMsg = messages[messages.length - 1];
     const lastText = (lastMsg?.text || '').toLowerCase();
     const hasProducts = displayedProducts.length > 0;
     const hasApproval = Boolean(lastMsg?.approval_card);
     const hasPaymentSuccess = Boolean(lastMsg?.payment_success);
     const isCartContext =
-      lastText.includes('cart summary') ||
-      lastText.includes('your current cart') ||
-      lastText.includes('ready to proceed') ||
-      lastText.includes('proceed to continue') ||
-      (cartItems.length > 0 && (lastText.includes('cart') || lastText.includes('item')));
+      cartItems.length > 0 &&
+      (lastText.includes('cart summary') ||
+       lastText.includes('your current cart') ||
+       lastText.includes('ready to proceed') ||
+       lastText.includes('proceed to continue') ||
+       lastText.includes('cart items') ||
+       lastText.includes('added to cart'));
 
     // Case 1: Payment Success State
     if (hasPaymentSuccess) {
       return [
         { label: 'View Orders', action: '/orders', icon: Package, isNav: true, variant: 'emerald' },
-        { label: 'Continue Shopping', action: 'Show top trending tech products', icon: ShoppingBag, variant: 'indigo' },
+        { label: 'Continue Shopping', action: 'Show active flash deals', icon: ShoppingBag, variant: 'indigo' },
         { label: 'New Search', action: 'NEW_CHAT_ACTION', icon: RefreshCw, variant: 'muted' },
       ];
     }
@@ -687,10 +765,10 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
           variant: 'razorpay',
         },
         {
-          label: 'Approve & Pay',
+          label: policy?.is_configured ? 'Approve & Pay' : 'Configure Rules & Approve',
           action: `APPROVE_INTENT_${card.intent_id}`,
           icon: CheckCircle2,
-          variant: 'emerald',
+          variant: policy?.is_configured ? 'emerald' : 'amber',
         },
         {
           label: 'Cash on Delivery (COD)',
@@ -707,8 +785,8 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
       ];
     }
 
-    // Case 3: Cart / Checkout Context
-    if (isCartContext || lastText.includes('checkout')) {
+    // Case 3: Cart / Checkout Context (STRICT: Only when user has >0 items in bag!)
+    if (cartItems.length > 0 && isCartContext) {
       return [
         {
           label: 'Proceed to Checkout',
@@ -745,7 +823,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
       ];
     }
 
-    // Case 5: Initial / Default Greeting State (Frequently Queried Prompts)
+    // Case 5: Initial / Default Greeting State & Empty Cart Discovery
     return [
       {
         label: 'Wireless headphones under ₹5,000',
@@ -763,12 +841,15 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
       { label: 'Show active flash deals', action: 'Show active flash deals', icon: Flame, variant: 'amber' },
       { label: 'Show my consent limits', action: 'Show my consent limits', icon: ShieldCheck, variant: 'muted' },
     ];
-  }, [messages, displayedProducts, cartItems]);
+  }, [messages, displayedProducts, cartItems, role, policy]);
 
   // Action Click Handler from dynamic buttons
   const handleActionClick = (action: string) => {
     if (action === 'TRIGGER_RAZORPAY') {
-      openRazorpayModal(totalPrice);
+      const lastMsg = messages[messages.length - 1];
+      const card = lastMsg?.approval_card;
+      const targetAmount = card?.amount ? card.amount : totalPrice;
+      openRazorpayModal(targetAmount, card?.intent_id);
     } else if (action === 'OPEN_CART_CANVAS') {
       setCanvasTab('cart');
     } else if (action === 'OPEN_COMPARE_CANVAS') {
@@ -1463,10 +1544,10 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                 </div>
 
                 {cartItems.length === 0 ? (
-                  <div className="p-12 text-center border border-dashed border-border rounded-3xl space-y-3">
-                    <ShoppingCart className="w-10 h-10 text-secondary/40 mx-auto" />
-                    <h4 className="text-sm font-bold text-primary">Your bag is currently empty</h4>
-                    <p className="text-xs text-secondary max-w-sm mx-auto">
+                  <div className="p-12 text-center border border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50/50 dark:bg-zinc-800/30 rounded-3xl space-y-3">
+                    <ShoppingCart className="w-12 h-12 text-slate-400 dark:text-zinc-500 mx-auto" />
+                    <h4 className="text-base font-bold text-slate-900 dark:text-zinc-100">Your bag is currently empty</h4>
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 max-w-sm mx-auto font-medium">
                       Ask the AI to "Add Fjallraven backpack to cart" or browse products in the live catalog.
                     </p>
                   </div>
@@ -1598,56 +1679,86 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
             {/* ── TAB 5: POLICY ── */}
             {canvasTab === 'policy' && (
               <div className="space-y-6">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <h3 className="text-sm sm:text-base font-black text-primary flex items-center gap-1.5">
+                    <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-zinc-100 flex items-center gap-1.5">
                       <ShieldCheck className="w-4 h-4 text-emerald-500" />
                       <span>Payment Consent Authorization Model</span>
                     </h3>
-                    <p className="text-xs text-secondary">
+                    <p className="text-xs text-slate-600 dark:text-zinc-400 font-medium">
                       Deterministic thresholds governing agent autonomy and human-in-the-loop approvals
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowPolicyModal(true)}
-                    className="px-3.5 py-1.5 rounded-xl border border-border bg-surface text-xs font-bold text-primary hover:bg-muted cursor-pointer"
-                  >
-                    Edit Limits
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black border ${
+                      policy.is_configured
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                        : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                    }`}>
+                      {policy.is_configured ? '⚡ Configured & Active' : '⚠️ Setup Required (Default Sandbox)'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowPolicyModal(true)}
+                      className="px-3.5 py-1.5 rounded-xl border border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-xs font-bold text-slate-800 dark:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-700 cursor-pointer shadow-xs"
+                    >
+                      Edit Limits
+                    </button>
+                  </div>
                 </div>
 
+                {!policy.is_configured && (
+                  <div className="p-4 rounded-2xl bg-amber-50 border border-amber-300 dark:bg-amber-950/20 dark:border-amber-500/40 flex items-start gap-3 shadow-xs">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                    <div className="flex-1 space-y-1">
+                      <h4 className="text-sm font-black text-amber-900 dark:text-amber-200">
+                        Payment Rules Not Yet Defined
+                      </h4>
+                      <p className="text-xs text-amber-800 dark:text-amber-300">
+                        Autonomous payment execution is strictly paused until you define and save your spending limits. Please click <strong>Configure Rules Now</strong> to establish your authorization boundary.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPolicyModal(true)}
+                      className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold shrink-0 cursor-pointer shadow-xs"
+                    >
+                      Configure Rules Now
+                    </button>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 space-y-1">
-                    <span className="text-xs font-bold text-emerald-600">Auto-Approve Ceiling</span>
-                    <div className="text-lg font-black text-emerald-700 dark:text-emerald-300">
+                  <div className="p-4 rounded-2xl bg-emerald-50/80 dark:bg-emerald-500/5 border border-emerald-200 dark:border-emerald-500/20 space-y-1">
+                    <span className="text-xs font-bold text-emerald-700 dark:text-emerald-400">Auto-Approve Ceiling</span>
+                    <div className="text-lg font-black text-emerald-800 dark:text-emerald-300">
                       &lt; ₹{policy.approval_threshold.toLocaleString()}
                     </div>
-                    <p className="text-[11px] text-secondary">Transactions execute immediately without confirmation.</p>
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">Transactions execute immediately without confirmation.</p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-1">
-                    <span className="text-xs font-bold text-amber-600">Confirmation Bracket</span>
-                    <div className="text-lg font-black text-amber-700 dark:text-amber-300">
+                  <div className="p-4 rounded-2xl bg-amber-50/80 dark:bg-amber-500/5 border border-amber-200 dark:border-amber-500/20 space-y-1">
+                    <span className="text-xs font-bold text-amber-700 dark:text-amber-400">Confirmation Bracket</span>
+                    <div className="text-lg font-black text-amber-800 dark:text-amber-300">
                       ₹{policy.approval_threshold.toLocaleString()} — ₹{policy.per_transaction_limit.toLocaleString()}
                     </div>
-                    <p className="text-[11px] text-secondary">Requires interactive Approval Card confirmation.</p>
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">Requires interactive Approval Card confirmation.</p>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 space-y-1">
-                    <span className="text-xs font-bold text-rose-600">Hard Block Limit</span>
-                    <div className="text-lg font-black text-rose-700 dark:text-rose-300">
+                  <div className="p-4 rounded-2xl bg-rose-50/80 dark:bg-rose-500/5 border border-rose-200 dark:border-rose-500/20 space-y-1">
+                    <span className="text-xs font-bold text-rose-700 dark:text-rose-400">Hard Block Limit</span>
+                    <div className="text-lg font-black text-rose-800 dark:text-rose-300">
                       &gt; ₹{policy.per_transaction_limit.toLocaleString()}
                     </div>
-                    <p className="text-[11px] text-secondary">Automatically blocked by the governance firewall.</p>
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">Automatically blocked by the governance firewall.</p>
                   </div>
                 </div>
 
                 {/* Daily Spending Bar */}
-                <div className="p-5 rounded-2xl border border-border bg-surface space-y-2">
+                <div className="p-5 rounded-2xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 space-y-2 shadow-xs">
                   <div className="flex items-center justify-between text-xs">
-                    <span className="font-bold text-primary">Daily Spending Limit Tracker</span>
-                    <span className="font-mono text-secondary">
+                    <span className="font-bold text-slate-900 dark:text-zinc-100">Daily Spending Limit Tracker</span>
+                    <span className="font-mono text-slate-600 dark:text-zinc-400 font-medium">
                       ₹{policy.daily_spent.toLocaleString()} / ₹{policy.daily_limit.toLocaleString()}
                     </span>
                   </div>
@@ -1659,6 +1770,30 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                       }}
                     />
                   </div>
+                </div>
+
+                {/* Save & Activate Consent Rules Action Bar */}
+                <div className="flex flex-wrap items-center justify-between gap-3 p-4 rounded-2xl bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-200 dark:border-indigo-500/30">
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-black text-indigo-950 dark:text-indigo-200">
+                      {policy.is_configured ? 'Consent Authorization Active' : 'Activate User-Defined Authorization'}
+                    </h4>
+                    <p className="text-[11px] text-slate-600 dark:text-zinc-400 font-medium">
+                      {policy.is_configured
+                        ? 'Your payment rules are saved and active in your account profile.'
+                        : 'Review spending boundaries above and save to enable autonomous checkouts.'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      await savePolicy(policy);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 hover:opacity-95 text-white text-xs font-black cursor-pointer shadow-md transition flex items-center gap-1.5 shrink-0"
+                  >
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>Save &amp; Activate Consent Rules</span>
+                  </button>
                 </div>
               </div>
             )}
@@ -1699,8 +1834,8 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
           </div>
 
           {/* Frequently Queried Prompts Ribbon */}
-          <div className="px-4 py-2 border-b border-border/60 bg-muted/20 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
-            <span className="text-[10px] font-bold text-secondary uppercase tracking-wider whitespace-nowrap flex items-center gap-1">
+          <div className="px-4 py-2 border-b border-border/60 bg-slate-50/60 dark:bg-zinc-900/60 flex items-center gap-1.5 overflow-x-auto scrollbar-none shrink-0">
+            <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap flex items-center gap-1">
               <Sparkles className="w-3 h-3 text-indigo-500" />
               <span>Trending:</span>
             </span>
@@ -1709,7 +1844,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                 key={idx}
                 type="button"
                 onClick={() => sendMessage(query)}
-                className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-surface border border-border/80 text-secondary hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-500/40 transition whitespace-nowrap cursor-pointer shadow-2xs"
+                className="px-2.5 py-1 rounded-xl text-[11px] font-semibold bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-slate-700 dark:text-zinc-300 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-500/40 transition whitespace-nowrap cursor-pointer shadow-xs"
               >
                 {query}
               </button>
@@ -1733,7 +1868,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                   className={`max-w-[88%] space-y-3 ${
                     m.sender === 'user'
                       ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-3.5 sm:p-4 rounded-3xl rounded-tr-xs shadow-sm text-sm sm:text-[15px] leading-relaxed'
-                      : 'bg-muted/40 dark:bg-zinc-800/80 border border-border/80 p-4 sm:p-4.5 rounded-3xl rounded-tl-xs shadow-2xs text-sm sm:text-[15px] text-primary'
+                      : 'bg-white dark:bg-zinc-800/90 border border-slate-200 dark:border-zinc-700/80 p-4 sm:p-4.5 rounded-3xl rounded-tl-xs shadow-xs text-sm sm:text-[15px] text-slate-900 dark:text-zinc-100'
                   }`}
                 >
                   {/* Intent Tag */}
@@ -1764,33 +1899,186 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                     />
                   )}
 
+                  {/* ── CONTEXTUAL QUESTION CONFIRMATION BUTTONS ── */}
+                  {m.sender === 'agent' && (() => {
+                    const match = m.text.match(/Would you like me to (?:prepare checkout for|add) (?:the )?\*?\*?([^\*\?]+?)\*?\*?(?: to your cart and proceed to checkout)?\?/i);
+                    if (!match) return null;
+                    const candidateName = match[1].trim();
+                    return (
+                      <div className="p-3 rounded-2xl bg-indigo-50/80 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800/40 space-y-2">
+                        <p className="text-xs font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                          <Zap className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
+                          <span>Quick Response Options:</span>
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => sendMessage(`yes`)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-600/20 flex items-center gap-1.5 cursor-pointer transition active:scale-98"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Yes, Checkout {candidateName}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => sendMessage(`Show other alternatives for ${candidateName}`)}
+                            className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-zinc-800 hover:bg-slate-100 dark:hover:bg-zinc-700 text-slate-700 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 transition cursor-pointer"
+                          >
+                            Show Alternatives
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
+
+                  {/* ── EMBEDDED PRODUCT RECOMMENDATION CARDS ── */}
+                  {m.sender === 'agent' && m.products && m.products.length > 0 && (
+                    <div className="space-y-2 pt-1 border-t border-slate-200/60 dark:border-zinc-700/60">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 flex items-center gap-1">
+                          <Package className="w-3.5 h-3.5" />
+                          <span>Interactive Options ({m.products.length})</span>
+                        </span>
+                        <span className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">Add to cart or instant checkout</span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        {m.products.slice(0, 4).map((p: any) => {
+                          const prodMatch = catalog.find((c) => String(c.id) === String(p.id) || c.slug === p.slug) || (p as unknown as ProductType);
+                          const pImg = p.image_url || productImage(prodMatch);
+                          return (
+                            <div
+                              key={p.id}
+                              className="rounded-2xl border border-slate-200 dark:border-zinc-700 bg-slate-50/70 dark:bg-zinc-900/60 p-3 space-y-2 hover:border-indigo-500/40 transition shadow-2xs"
+                            >
+                              <div
+                                className="flex items-center gap-2.5 cursor-pointer group"
+                                onClick={() => {
+                                  setSelectedProduct(prodMatch);
+                                  setSelectedImageAngle(0);
+                                  setCanvasTab('products');
+                                }}
+                                title="Click to view details on canvas"
+                              >
+                                <div className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center overflow-hidden shrink-0">
+                                  <img
+                                    src={pImg}
+                                    alt={p.name}
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).src = getCategoryFallbackImage(p.category?.name || p.name);
+                                    }}
+                                    className="w-full h-full object-contain p-1"
+                                  />
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                  <h5 className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate group-hover:text-indigo-600 transition-colors">
+                                    {p.name}
+                                  </h5>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                                      ₹{Number(p.price || 0).toLocaleString('en-IN')}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-amber-500">★ {p.rating || '4.8'}</span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 pt-1 border-t border-slate-200/60 dark:border-zinc-800">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddToCartAnimated(prodMatch)}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-xs cursor-pointer flex items-center justify-center gap-1 transition active:scale-98"
+                                >
+                                  <ShoppingCart className="w-3 h-3" />
+                                  <span>Add</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => sendMessage(`Add ${p.name} to cart and checkout`)}
+                                  className="flex-1 py-1.5 px-2 rounded-xl text-[11px] font-bold bg-[#0C2340] hover:bg-[#143560] text-white border border-[#3395FF]/30 shadow-xs cursor-pointer flex items-center justify-center gap-1 transition active:scale-98"
+                                >
+                                  <Zap className="w-3 h-3 text-[#3395FF]" />
+                                  <span>Checkout</span>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── INTERACTIVE FOLLOW-UP OPTIONS & ACTION CHIPS ── */}
+                  {m.sender === 'agent' && m.suggested_followups && m.suggested_followups.length > 0 && (
+                    <div className="pt-2 border-t border-slate-200/60 dark:border-zinc-700/60 space-y-1.5">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 flex items-center gap-1">
+                        <Sparkles className="w-3 h-3 text-indigo-500" />
+                        <span>Suggested Actions & Follow-ups:</span>
+                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        {m.suggested_followups.map((sug, sIdx) => (
+                          <button
+                            key={sIdx}
+                            type="button"
+                            onClick={() => sendMessage(sug)}
+                            className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 dark:hover:bg-indigo-900/60 border border-indigo-200/80 dark:border-indigo-800/60 text-indigo-700 dark:text-indigo-300 transition-all cursor-pointer flex items-center gap-1.5 shadow-2xs hover:scale-102 active:scale-98"
+                          >
+                            <ChevronRight className="w-3 h-3 text-indigo-500" />
+                            <span>{sug}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* ── APPROVAL CARD ── */}
                   {m.approval_card && (
-                    <div className="rounded-2xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-3 animate-in fade-in">
-                      <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
-                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-600 flex items-center gap-1">
+                    <div className="rounded-2xl border border-amber-300 dark:border-amber-500/30 bg-amber-50/90 dark:bg-amber-950/20 p-4 space-y-3 animate-in fade-in shadow-xs">
+                      <div className="flex items-center justify-between border-b border-amber-200 dark:border-amber-500/20 pb-2">
+                        <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400 flex items-center gap-1">
                           <AlertTriangle className="w-3.5 h-3.5" />
                           <span>Confirmation Required</span>
                         </span>
-                        <span className="text-[10px] font-bold text-secondary">
+                        <span className="text-[10px] font-bold text-slate-700 dark:text-zinc-300">
                           Policy: {m.approval_card.policy}
                         </span>
                       </div>
 
+                      {(!policy?.is_configured || (m.approval_card as any)?.rules_configured === false) && (
+                        <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-500/15 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs font-bold">
+                          <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                          <div className="flex-1">
+                            <span className="font-black">Rules Not Configured — Setup Required</span>
+                            <p className="text-[10px] font-medium text-amber-800 dark:text-amber-300">
+                              Please review and save your authorization limits in the Policy tab before approving transactions.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setCanvasTab('policy');
+                              setShowPolicyModal(true);
+                            }}
+                            className="px-2.5 py-1 rounded-lg bg-amber-600 hover:bg-amber-700 text-white text-[11px] font-black cursor-pointer shadow-xs whitespace-nowrap"
+                          >
+                            Set Rules
+                          </button>
+                        </div>
+                      )}
+
                       <div className="space-y-1">
-                        <div className="text-sm font-black text-primary">{m.approval_card.product}</div>
-                        <div className="text-xs text-secondary">Merchant: {m.approval_card.merchant}</div>
+                        <div className="text-sm font-black text-slate-900 dark:text-zinc-100">{m.approval_card.product}</div>
+                        <div className="text-xs text-slate-600 dark:text-zinc-400 font-medium">Merchant: {m.approval_card.merchant}</div>
                         <div className="text-base font-black text-indigo-600 dark:text-indigo-400">
                           ₹{m.approval_card.amount.toLocaleString('en-IN')}
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-2 pt-2 border-t border-amber-500/20">
+                      <div className="flex items-center gap-2 pt-2 border-t border-amber-200 dark:border-amber-500/20">
                         <button
                           type="button"
                           disabled={approving}
                           onClick={() => rejectTransaction(m.approval_card!.intent_id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-bold bg-muted hover:bg-border text-secondary cursor-pointer disabled:opacity-50"
+                          className="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-200 hover:bg-slate-300 dark:bg-zinc-700 dark:hover:bg-zinc-600 text-slate-800 dark:text-zinc-200 cursor-pointer disabled:opacity-50 transition"
                         >
                           Reject
                         </button>
@@ -1799,7 +2087,7 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                           type="button"
                           disabled={approving}
                           onClick={() => openRazorpayModal(m.approval_card!.amount, m.approval_card!.intent_id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-black bg-[#0C2340] hover:bg-[#143560] text-white shadow-md cursor-pointer flex items-center justify-center gap-1 border border-[#3395FF]/40 disabled:opacity-50"
+                          className="flex-1 py-2 rounded-xl text-xs font-black bg-[#0C2340] hover:bg-[#143560] text-white shadow-md cursor-pointer flex items-center justify-center gap-1 border border-[#3395FF]/40 disabled:opacity-50 transition"
                         >
                           <CreditCard className="w-3.5 h-3.5 text-[#3395FF]" />
                           <span>Pay Razorpay</span>
@@ -1808,15 +2096,30 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                         <button
                           type="button"
                           disabled={approving}
-                          onClick={() => approveTransaction(m.approval_card!.intent_id)}
-                          className="flex-1 py-2 rounded-xl text-xs font-black bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50"
+                          onClick={() => {
+                            if (!policy?.is_configured || (m.approval_card as any)?.rules_configured === false) {
+                              setCanvasTab('policy');
+                              setShowPolicyModal(true);
+                            } else {
+                              approveTransaction(m.approval_card!.intent_id);
+                            }
+                          }}
+                          className={`flex-1 py-2 rounded-xl text-xs font-black text-white shadow-md cursor-pointer flex items-center justify-center gap-1 disabled:opacity-50 transition ${
+                            !policy?.is_configured || (m.approval_card as any)?.rules_configured === false
+                              ? 'bg-amber-600 hover:bg-amber-700'
+                              : 'bg-emerald-600 hover:bg-emerald-700'
+                          }`}
                         >
                           {approving ? (
                             <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                           ) : (
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           )}
-                          <span>Approve</span>
+                          <span>
+                            {!policy?.is_configured || (m.approval_card as any)?.rules_configured === false
+                              ? 'Configure & Pay'
+                              : 'Approve & Pay'}
+                          </span>
                         </button>
                       </div>
                     </div>
@@ -1824,19 +2127,19 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
 
                   {/* ── PAYMENT SUCCESS BANNER ── */}
                   {m.payment_success && (
-                    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-4 space-y-2">
-                      <div className="flex items-center gap-1.5 text-sm font-black text-emerald-600">
+                    <div className="rounded-2xl border border-emerald-300 dark:border-emerald-500/30 bg-emerald-50/90 dark:bg-emerald-950/20 p-4 space-y-2 shadow-xs">
+                      <div className="flex items-center gap-1.5 text-sm font-black text-emerald-700 dark:text-emerald-400">
                         <CheckCircle2 className="w-4 h-4" />
                         <span>Order #ORD-{m.payment_success.order_id} Confirmed!</span>
                       </div>
-                      <p className="text-xs text-secondary">
-                        Reference: <code className="font-mono bg-surface px-1.5 py-0.5 rounded">{m.payment_success.payment_reference}</code>
+                      <p className="text-xs text-slate-700 dark:text-zinc-300">
+                        Reference: <code className="font-mono bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 px-1.5 py-0.5 rounded text-slate-900 dark:text-zinc-100">{m.payment_success.payment_reference}</code>
                       </p>
                       <div className="flex items-center justify-between text-xs pt-1">
-                        <span className="font-semibold text-primary">ETA: {m.payment_success.delivery_eta}</span>
+                        <span className="font-semibold text-slate-900 dark:text-zinc-100">ETA: {m.payment_success.delivery_eta}</span>
                         <Link
                           to={`/orders`}
-                          className="font-bold underline text-indigo-600 flex items-center gap-1"
+                          className="font-bold underline text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
                         >
                           <span>View Orders</span>
                           <ExternalLink className="w-3 h-3" />
@@ -1845,7 +2148,9 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                     </div>
                   )}
 
-                  <span className="text-[10px] text-secondary block pt-1">{m.timestamp}</span>
+                  <span className={`text-[10px] block pt-1 ${m.sender === 'user' ? 'text-indigo-100 font-medium' : 'text-slate-500 dark:text-zinc-400'}`}>
+                    {m.timestamp}
+                  </span>
                 </div>
               </div>
             ))}
@@ -1883,12 +2188,12 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                         : btn.variant === 'emerald'
                         ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600 shadow-sm'
                         : btn.variant === 'rose'
-                        ? 'bg-rose-500/10 hover:bg-rose-500 text-rose-600 hover:text-white border-rose-500/20'
+                        ? 'bg-rose-50 hover:bg-rose-600 text-rose-700 hover:text-white dark:bg-rose-500/15 dark:hover:bg-rose-500 dark:text-rose-300 dark:hover:text-white border-rose-200 dark:border-rose-500/30'
                         : btn.variant === 'amber'
-                        ? 'bg-amber-500/10 hover:bg-amber-500 text-amber-600 hover:text-white border-amber-500/20'
+                        ? 'bg-amber-50 hover:bg-amber-600 text-amber-800 hover:text-white dark:bg-amber-500/15 dark:hover:bg-amber-500 dark:text-amber-300 dark:hover:text-white border-amber-200 dark:border-amber-500/30'
                         : btn.variant === 'indigo'
                         ? 'bg-indigo-600 text-white hover:bg-indigo-700 border-indigo-600 shadow-xs'
-                        : 'bg-muted/70 hover:bg-indigo-600 hover:text-white text-secondary hover:text-primary border-border/70'
+                        : 'bg-slate-100 hover:bg-indigo-600 dark:bg-zinc-800 text-slate-800 dark:text-zinc-200 hover:text-white dark:hover:text-white border-slate-300/80 dark:border-zinc-700 font-semibold'
                     }`}
                   >
                     {IconComponent && <IconComponent className="w-3.5 h-3.5" />}
@@ -1958,7 +2263,16 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
         <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in">
           <div className="w-full max-w-md rounded-3xl bg-surface border border-border p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between">
-              <h3 className="text-base font-black text-primary">Configure Consent Limits</h3>
+              <div>
+                <h3 className="text-base font-black text-primary">Configure Consent Limits</h3>
+                <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full mt-1 border ${
+                  policy.is_configured
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30'
+                    : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/30'
+                }`}>
+                  {policy.is_configured ? '⚡ Configured & Active' : '⚠️ Setup Required (Default Sandbox)'}
+                </span>
+              </div>
               <button
                 onClick={() => setShowPolicyModal(false)}
                 className="text-secondary hover:text-primary cursor-pointer"
@@ -2014,9 +2328,10 @@ export default function CommerceStudio({ isFloating = false, onClose }: Commerce
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 rounded-xl bg-indigo-600 text-white font-bold cursor-pointer"
+                  className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-black cursor-pointer transition shadow-md flex items-center gap-1.5"
                 >
-                  Save Policy
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>Save &amp; Activate Consent Rules</span>
                 </button>
               </div>
             </form>

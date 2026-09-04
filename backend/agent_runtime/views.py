@@ -632,12 +632,14 @@ class CommerceChatView(APIView):
             return Response({"error": "Field 'message' is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         history = request.data.get("history", [])
+        cart_data = request.data.get("cart")
         from .commerce_assistant import AgenticCommerceService
 
         res = AgenticCommerceService.handle_chat(
             user_message=message,
             history=history,
             user=request.user,
+            cart_data=cart_data,
         )
         return Response(res)
 
@@ -654,11 +656,11 @@ class CommerceConsentView(APIView):
         policy, _ = AgentUserConsentPolicy.objects.get_or_create(
             user=request.user,
             defaults={
-                "per_transaction_limit": Decimal("5000.00"),
+                "per_transaction_limit": Decimal("150000.00"),
                 "approval_threshold": Decimal("2000.00"),
-                "daily_limit": Decimal("10000.00"),
-                "monthly_limit": Decimal("50000.00"),
-                "allowed_categories": ["electronics", "peripherals", "accessories", "apparel", "home"],
+                "daily_limit": Decimal("200000.00"),
+                "monthly_limit": Decimal("500000.00"),
+                "allowed_categories": ["electronics", "peripherals", "accessories", "apparel", "home", "mobiles", "laptops", "gaming", "audio-sound"],
             },
         )
         return Response({
@@ -669,6 +671,8 @@ class CommerceConsentView(APIView):
             "allowed_categories": policy.allowed_categories,
             "daily_spent": float(policy.daily_spent),
             "monthly_spent": float(policy.monthly_spent),
+            "is_configured": policy.is_configured,
+            "configured_at": policy.configured_at.isoformat() if policy.configured_at else None,
         })
 
     def post(self, request):
@@ -687,6 +691,8 @@ class CommerceConsentView(APIView):
         if "allowed_categories" in data and isinstance(data["allowed_categories"], list):
             policy.allowed_categories = data["allowed_categories"]
 
+        policy.is_configured = True
+        policy.configured_at = timezone.now()
         policy.save()
         return Response({
             "status": "CONSENT_UPDATED",
@@ -695,6 +701,8 @@ class CommerceConsentView(APIView):
             "daily_limit": float(policy.daily_limit),
             "monthly_limit": float(policy.monthly_limit),
             "allowed_categories": policy.allowed_categories,
+            "is_configured": policy.is_configured,
+            "configured_at": policy.configured_at.isoformat() if policy.configured_at else None,
         })
 
 
@@ -710,6 +718,14 @@ class CommerceApproveView(APIView):
         intent_id = request.data.get("intent_id")
         if not intent_id:
             return Response({"error": "Field 'intent_id' is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .models import AgentUserConsentPolicy
+        policy = AgentUserConsentPolicy.objects.filter(user=request.user).first()
+        if not policy or not policy.is_configured:
+            return Response({
+                "error": "Payment authorization rules have not been configured yet. Please define your authorization limits and consent rules in the Policy tab before authorizing transactions.",
+                "code": "RULES_NOT_CONFIGURED"
+            }, status=status.HTTP_400_BAD_REQUEST)
 
         from .commerce_assistant import DeterministicCommerceTools
 

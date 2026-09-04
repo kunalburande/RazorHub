@@ -68,6 +68,7 @@ export interface ConsentPolicy {
   allowed_categories: string[];
   daily_spent: number;
   monthly_spent: number;
+  is_configured?: boolean;
 }
 
 export type CanvasTabType = 'products' | 'compare' | 'cart' | 'deals' | 'policy' | 'role_intel';
@@ -86,13 +87,14 @@ export function useAgenticCommerce() {
   const [comparisonList, setComparisonList] = useState<ProductType[]>([]);
   const [catalog, setCatalog] = useState<ProductType[]>([]);
   const [policy, setPolicy] = useState<ConsentPolicy>({
-    per_transaction_limit: 5000,
+    per_transaction_limit: 150000,
     approval_threshold: 2000,
-    daily_limit: 10000,
-    monthly_limit: 50000,
-    allowed_categories: ['electronics', 'accessories', 'apparel', 'home'],
+    daily_limit: 200000,
+    monthly_limit: 500000,
+    allowed_categories: ['electronics', 'accessories', 'apparel', 'home', 'mobiles', 'laptops', 'gaming', 'audio-sound'],
     daily_spent: 0,
     monthly_spent: 0,
+    is_configured: false,
   });
   const [policyNotice, setPolicyNotice] = useState<string | null>(null);
 
@@ -104,7 +106,7 @@ export function useAgenticCommerce() {
         roleBadge: 'NeonDB Active • Governance Firewall',
         roleIntelTabLabel: 'Governance & Risk',
         welcomeMessage:
-          "Welcome, **Platform Administrator**.\n\nI can inspect cross-merchant GMV, run transaction risk audits, monitor pending governance disbursements, and verify NeonDB infrastructure health.\n\nTry asking: *\"Show today's platform GMV and orders\"*",
+          "Welcome, *Platform Administrator*.\n\nI can inspect cross-merchant GMV, run transaction risk audits, monitor pending governance disbursements, and verify NeonDB infrastructure health.\n\nTry asking: *\"Show today's platform GMV and orders\"*",
         scenarios: [
           "Show platform GMV and orders today",
           "Any pending governance payout approvals?",
@@ -164,7 +166,7 @@ export function useAgenticCommerce() {
     if (token) {
       apiRequest<ConsentPolicy>('/agent-runtime/commerce/consent/', { token })
         .then(res => setPolicy(res))
-        .catch(() => {});
+        .catch(() => { });
     }
 
     setMessages([
@@ -205,13 +207,27 @@ export function useAgenticCommerce() {
     }
 
     try {
-      // 1. Try Agentic Commerce Service first
+      // 1. Try Agentic Commerce Service first (with live synchronized cart state)
+      const clientCart = {
+        items: cartItems.map(i => ({
+          id: String(i.product.id),
+          name: i.product.name,
+          slug: i.product.slug,
+          price: Number(price(i.product)),
+          quantity: i.quantity,
+          merchant: i.product.store?.name || 'RazorHub Verified Store',
+          image_url: i.product.images?.[0]?.image_url || '',
+        })),
+        total_amount: totalPrice,
+      };
+
       const res = await apiRequest<any>('/agent-runtime/commerce/chat/', {
         token,
         method: 'POST',
         body: JSON.stringify({
           message: text,
           history: messages.slice(-4).map(m => ({ role: m.sender, content: m.text })),
+          cart: clientCart,
         }),
       });
 
@@ -239,7 +255,7 @@ export function useAgenticCommerce() {
       if (res.payment_success && token) {
         apiRequest<ConsentPolicy>('/agent-runtime/commerce/consent/', { token })
           .then(p => setPolicy(p))
-          .catch(() => {});
+          .catch(() => { });
       }
     } catch (err: any) {
       // 2. Fallback to /ai/chat/ endpoint if agent-runtime encountered issue
@@ -291,6 +307,22 @@ export function useAgenticCommerce() {
 
   // Approve Transaction
   const approveTransaction = useCallback(async (intentId: string) => {
+    // If policy rules have not been explicitly configured by user, block execution and prompt
+    if (!policy || !policy.is_configured) {
+      setCanvasTab('policy');
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `rule-warn-${Date.now()}`,
+          sender: 'agent',
+          text: '⚠️ **Payment Authorization Rules Required**\n\nYou have not defined your autonomous payment approval rules yet. Please review and activate your transaction limits in the **Policy** tab first before authorizing payments.',
+          suggested_followups: ['Configure consent limits', 'Show my consent limits'],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
+      return;
+    }
+
     try {
       setApproving(true);
       const res = await apiRequest<PaymentSuccessData>('/agent-runtime/commerce/approve/', {
@@ -320,11 +352,26 @@ export function useAgenticCommerce() {
         setPolicy(updatedPolicy);
       }
     } catch (err: any) {
-      alert(`Payment execution failed: ${err.message}`);
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('rules') || errMsg.includes('Policy') || errMsg.includes('RULES_NOT_CONFIGURED')) {
+        setCanvasTab('policy');
+        setMessages(prev => [
+          ...prev,
+          {
+            id: `rule-warn-${Date.now()}`,
+            sender: 'agent',
+            text: `⚠️ **Action Required: Define Authorization Rules**\n\n${errMsg}\n\nPlease review and save your rules on the **Policy** canvas before authorizing autonomous payments.`,
+            suggested_followups: ['Configure consent limits', 'Show my consent limits'],
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          },
+        ]);
+      } else {
+        alert(`Payment execution failed: ${errMsg}`);
+      }
     } finally {
       setApproving(false);
     }
-  }, [token]);
+  }, [token, policy]);
 
   // Reject Transaction
   const rejectTransaction = useCallback(async (intentId: string) => {
@@ -361,9 +408,20 @@ export function useAgenticCommerce() {
         method: 'POST',
         body: JSON.stringify(newPolicy),
       });
-      setPolicy(prev => ({ ...prev, ...newPolicy }));
-      setPolicyNotice('Consent limits updated successfully!');
+      setPolicy(prev => ({ ...prev, ...newPolicy, is_configured: true }));
+      setPolicyNotice('Consent limits updated and activated successfully!');
       setTimeout(() => setPolicyNotice(null), 3500);
+
+      setMessages(prev => [
+        ...prev,
+        {
+          id: `policy-saved-${Date.now()}`,
+          sender: 'agent',
+          text: `🛡️ **Payment Authorization Rules Successfully Activated!**\n\n• **Auto-Approve Ceiling:** **< ₹${Number(newPolicy.approval_threshold || 2000).toLocaleString('en-IN')}**\n• **Per-Transaction Hard Cap:** **₹${Number(newPolicy.per_transaction_limit || 150000).toLocaleString('en-IN')}**\n• **Daily Limit:** **₹${Number(newPolicy.daily_limit || 200000).toLocaleString('en-IN')}**\n\nYour autonomous payment rules are now in effect. Transactions within these limits can proceed seamlessly.`,
+          suggested_followups: ['Proceed with checkout for my bag items', 'Show active flash deals'],
+          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        },
+      ]);
       return res;
     } catch (err: any) {
       setPolicyNotice(`Failed to update: ${err.message}`);

@@ -25,6 +25,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         if mode == "seller" or user.effective_role == "seller":
             store = getattr(getattr(user, "seller_profile", None), "store", None)
             if not store:
+                from sellers.models import Store
+                store = (
+                    Store.objects.filter(seller__user=user).first()
+                    or Store.objects.filter(support_email__iexact=getattr(user, "email", "")).first()
+                )
+            if not store:
                 return Order.objects.none()
             return queryset.filter(items__product__store=store).distinct()
         if user.effective_role == "admin":
@@ -38,6 +44,12 @@ class OrderViewSet(viewsets.ModelViewSet):
         mode = request.query_params.get("mode")
         if user.effective_role == "seller" or mode == "seller":
             store = getattr(getattr(user, "seller_profile", None), "store", None)
+            if not store:
+                from sellers.models import Store
+                store = (
+                    Store.objects.filter(seller__user=user).first()
+                    or Store.objects.filter(support_email__iexact=getattr(user, "email", "")).first()
+                )
             if not store:
                 return Response({
                     "orders": 0,

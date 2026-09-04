@@ -362,6 +362,55 @@ Guidelines:
                 lines.append(f"\nTap to add the complete package: [ADD_BUNDLE:{primary.slug},{acc_slugs}]")
                 return {"content": "\n".join(lines), "bundle": bundle_result}
 
+        # Check for Upsell & Cross-Sell Recommendations
+        if any(w in last_query for w in ["upsell", "cross-sell", "cross sell", "accessory", "accessories", "compatible with", "frequently bought", "upgrade option", "upgrade", "suggest accessories"]):
+            from intelligence.services.upsell_service import UpsellService
+            cart_items = context.get("cart", {}).get("items", [])
+            user = context.get("user")
+
+            base_prod = None
+            if cart_items:
+                slug = cart_items[0].get("slug")
+                if slug:
+                    base_prod = Product.objects.filter(slug=slug).first()
+            if not base_prod:
+                base_prod = Product.objects.filter(is_active=True, is_featured=True).first()
+
+            rec_data = UpsellService.get_recommendations(
+                cart_items=cart_items,
+                product=base_prod,
+                user=user,
+                limit=3
+            )
+            recs = rec_data.get("recommendations", [])
+
+            lines = ["✨ **Signal-Based Upsell & Cross-Sell Recommendations**\n"]
+            companion_prods = []
+            if recs:
+                for r in recs:
+                    if r.get("type") == "incentive":
+                        data = r.get("data", {})
+                        lines.append(f"🚚 **{data.get('message', 'Add more to unlock free shipping!')}**")
+                        for s in data.get("suggestions", [])[:2]:
+                            lines.append(f"• **{s['name']}** — **₹{s['price']:,.2f}** [PRODUCT:{s['slug']}]")
+                        lines.append("")
+                    elif "product" in r:
+                        p_info = r["product"]
+                        reason = r.get("reason", "Highly compatible accessory")
+                        inc_margin = r.get("expected_incremental_margin")
+                        margin_str = f" *(Est. Merchant Margin: +₹{inc_margin:,.0f})*" if inc_margin else ""
+                        lines.append(f"• **{p_info['name']}** — **₹{p_info['price']:,.2f}**{margin_str}\n  _{reason}_\n  [PRODUCT:{p_info['slug']}]")
+
+                        prod_obj = Product.objects.filter(id=p_info["id"]).first()
+                        if prod_obj:
+                            companion_prods.append(prod_obj)
+                lines.append("\n🔒 *Invariant: Gated recommendations — AI suggests, but payment capture strictly requires buyer confirmation.*")
+                return {
+                    "content": "\n".join(lines),
+                    "upsell": rec_data,
+                    "products": companion_prods
+                }
+
         try:
             content = self.call_gemini(messages, context)
             return {"content": content}

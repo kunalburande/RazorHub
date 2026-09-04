@@ -122,11 +122,11 @@ export default function RecoveryDashboard() {
 
       // 2. Fetch real recovery tasks strictly isolated to this seller/store
       const response = await apiRequest<any>("/intelligence/recovery/");
-      const list = unwrapList(response);
+      const list = unwrapList<any>(response);
       setTasks(list);
 
       // If store_name was not provided in stats, extract from first task if available
-      if (list.length > 0 && list[0].store_name && !storeName) {
+      if (list.length > 0 && list[0]?.store_name && !storeName) {
         setStoreName(list[0].store_name);
       }
     } catch (err: any) {

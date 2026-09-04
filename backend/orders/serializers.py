@@ -1,6 +1,7 @@
 from decimal import Decimal, ROUND_HALF_UP
 
 from django.db import transaction
+from django.db.models import Q
 from rest_framework import serializers
 from crm.models import ActivityLog, Notification
 from products.models import Product
@@ -71,13 +72,22 @@ class OrderSerializer(serializers.ModelSerializer):
             mode = request.query_params.get("mode")
             if request.user.effective_role == "seller" or mode == "seller":
                 store = getattr(getattr(request.user, "seller_profile", None), "store", None)
+                if not store:
+                    from sellers.models import Store
+                    store = (
+                        Store.objects.filter(seller__user=request.user).first()
+                        or Store.objects.filter(support_email__iexact=getattr(request.user, "email", "")).first()
+                    )
                 if store:
-                    data["items"] = [
-                        item for item in data.get("items", [])
-                        if isinstance(item.get("product"), dict) and isinstance(item["product"].get("store"), dict) and item["product"]["store"].get("id") == store.id
-                    ]
-                else:
-                    data["items"] = []
+                    filtered_items = []
+                    for item in data.get("items", []):
+                        prod = item.get("product")
+                        if isinstance(prod, dict):
+                            st = prod.get("store")
+                            st_id = st.get("id") if isinstance(st, dict) else prod.get("store_id", st)
+                            if st_id == store.id:
+                                filtered_items.append(item)
+                    data["items"] = filtered_items if filtered_items else data.get("items", [])
         return data
 
     class Meta:
