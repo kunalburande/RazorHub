@@ -17,12 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          token: ${{ secrets.GH_PAT }}
+          token: ${{ secrets.GH_PAT || github.token }}
 
       - name: Check Sentry for unresolved issues
         env:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets.GH_PAT }}
+          GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
           PROJECT_SLUG=$(echo "${{ github.repository }}" | cut -d/ -f2 | tr "[:upper:]" "[:lower:]" | sed "s/\./-/g")
           set -e
