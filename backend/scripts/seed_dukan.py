@@ -316,7 +316,7 @@ review_people = [
     ("Sita Karki", "Arrived quickly and matched the description.", False),
     ("Aarav Shrestha", "Good value for the price in Kathmandu.", True),
     ("Nisha Thapa", "Packaging was fine and the product works well.", False),
-    ("Bikram Gurung", "Better than expected from a local seller.", True),
+    ("Vikram Sharma", "Better than expected from a local seller.", True),
     ("Mina Lama", "Would buy again from the same store.", False),
 ]
 

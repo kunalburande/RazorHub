@@ -1,6 +1,6 @@
-# KinaHub — Complete Database Schema Reference
+# RazorHub — Complete Database Schema Reference
 
-This document provides the full database schema specification for **KinaHub**, detailing all 32 models across 7 backend applications, including data types, relational mappings, constraints, indexes, and AI-commerce extensions.
+This document provides the full database schema specification for **RazorHub**, detailing all 32 models across 7 backend applications, including data types, relational mappings, constraints, indexes, and AI-commerce extensions.
 
 ---
 
@@ -254,7 +254,7 @@ Defined in [backend/products/models.py](file:///c:/Users/krbur/OneDrive/Desktop/
 
 ### 4. Orders, Cart & Checkout (`orders`)
 
-Defined in [backend/orders/models.py](file:///c:/Users/krbur/OneDrive/Desktop/AI/KinaHub-main/backend/orders/models.py).
+Defined in [backend/orders/models.py](file:///c:/Users/krbur/OneDrive/Desktop/RazorHub/backend/orders/models.py).
 
 #### **`Order`** (`orders_order`)
 - `id` (`BigAutoField`, PK)

@@ -22,7 +22,7 @@ SEEDED_EMAILS = frozenset([
     # Legacy seeded test users
     "admin@razorhub.in", "admin@razorhub.local", "seller@techvista.in", "seller@stylecraft.in",
     "seller@homeessentials.in", "seller@glamourbox.in", "seller.saanvi0@store.in",
-    "customer.demo@kinahub.local", "customer.demo@razorhub.local",
+    "customer.demo@razorhub.local",
     "aarav.singh@customer.in", "diya.mehta@customer.in", "vihaan.kumar@customer.in",
     "ananya.gupta@customer.in", "reyansh.iyer@customer.in", "isha.patel@customer.in",
     "kabir.das@customer.in", "myra.joshi@customer.in", "aryan.nair@customer.in",

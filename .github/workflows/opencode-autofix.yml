@@ -38,10 +38,13 @@ jobs:
           SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
           GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         run: |
+          PROJECT_SLUG=$(echo "${{ github.repository }}" | cut -d/ -f2 | tr "[:upper:]" "[:lower:]" | sed "s/\./-/g")
+          SENTRY_ORG="${{ secrets.SENTRY_ORG || 'razorhub' }}"
+          SENTRY_HOST="${{ secrets.SENTRY_HOST || 'sentry.io' }}"
           ISSUE_JSON=$(gh api \
             -H "Authorization: Bearer $SENTRY_AUTH_TOKEN" \
             -H "Content-Type: application/json" \
-            "https://de.sentry.io/api/0/organizations/bikramgole/issues/?query=is:unresolved%20project:${PROJECT_SLUG}&limit=1&statsPeriod=14d" \
+            "https://${SENTRY_HOST}/api/0/organizations/${SENTRY_ORG}/issues/?query=is:unresolved%20project:${PROJECT_SLUG}&limit=1&statsPeriod=14d" \
             --jq '.[0] // empty' 2>/dev/null || echo "")
 
           if [ -z "$ISSUE_JSON" ] || [ "$ISSUE_JSON" = "null" ]; then
@@ -127,10 +130,11 @@ jobs:
         run: |
           SENTRY_NUMERIC_ID="${{ steps.sentry.outputs.sentry_numeric_id }}"
           ISSUE_ID="${{ steps.sentry.outputs.issue_id }}"
+          SENTRY_HOST="${{ secrets.SENTRY_HOST || 'sentry.io' }}"
           if [ -n "$SENTRY_NUMERIC_ID" ]; then
             gh api -X PUT \
               -H "Authorization: Bearer ${{ secrets.SENTRY_AUTH_TOKEN }}" \
-              "https://de.sentry.io/api/0/issues/$SENTRY_NUMERIC_ID/" \
+              "https://${SENTRY_HOST}/api/0/issues/$SENTRY_NUMERIC_ID/" \
               -F "status=resolved" --silent 2>/dev/null && echo "Sentry issue resolved" || true
           fi
           if [ -n "$ISSUE_ID" ]; then

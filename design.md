@@ -1,4 +1,4 @@
-# KinaHub — System Design Document
+# RazorHub — System Design Document
 
 > **Version:** 1.0  
 > **Last Updated:** June 2026  
@@ -13,14 +13,14 @@
 │                    Frontend (Vercel)                    │
 │  React 19 · TypeScript · Vite · Tailwind CSS 4         │
 │  React Router 7 · Framer Motion                        │
-│  kinahub.vercel.app                                    │
+│  razorhub.vercel.app                                   │
 └────────────────────┬───────────────────────────────────┘
                      │ HTTPS / JSON
                      ▼
 ┌────────────────────────────────────────────────────────┐
 │                    Backend (Render)                     │
 │  Django 6.0 · DRF 3.17 · Gunicorn · Whitenoise         │
-│  kinahub-ot0t.onrender.com                              │
+│  razorhub.onrender.com                                 │
 └───────┬──────────┬──────────┬──────────┬───────────────┘
         │          │          │          │
         ▼          ▼          ▼          ▼
@@ -427,8 +427,8 @@ On each deploy (via `start.sh` / `render.yaml`):
 
 ```bash
 # Local setup
-git clone https://github.com/BikramGole/KinaHub.git
-cd KinaHub
+git clone https://github.com/kunalburande/RazorHub.git
+cd RazorHub
 cp backend/.env.example backend/.env    # Set DB, secrets, API keys
 ./start.sh                               # Starts Django (8000) + Vite (5173)
 
@@ -468,7 +468,7 @@ git push main          # Auto-deploys: Vercel (frontend) + Render (backend)
 ## 11. Directory Map
 
 ```
-KinaHub/
+RazorHub/
 ├── backend/
 │   ├── core/           # Django project (settings, urls, wsgi)
 │   ├── users/          # Auth, profiles, addresses

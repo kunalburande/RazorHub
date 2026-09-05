@@ -23,8 +23,8 @@ User = get_user_model()
 class ObservabilityAndAuditTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(
-            username="observability_tester@kinahub.com",
-            email="observability_tester@kinahub.com",
+            username="observability_tester@razorhub.com",
+            email="observability_tester@razorhub.com",
             password="testpassword123",
         )
         self.client = APIClient()
